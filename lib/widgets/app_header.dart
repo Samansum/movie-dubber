@@ -52,11 +52,13 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             children: [
               if (showBackButton)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.onSurface),
+                  icon: const Icon(Icons.arrow_back_rounded,
+                      color: AppColors.onSurface),
                   onPressed: onBack ?? () => Navigator.maybePop(context),
                   tooltip: 'Back',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  constraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
                 )
               else
                 // CineDub Logo Emblem
@@ -81,7 +83,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   ),
                   child: const Center(
                     child: Icon(
-                      Icons.auto_videocam_rounded,
+                      Icons.videocam_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -123,7 +125,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primaryContainer, width: 1.5),
+                      border: Border.all(
+                          color: AppColors.primaryContainer, width: 1.5),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x667C3AED),

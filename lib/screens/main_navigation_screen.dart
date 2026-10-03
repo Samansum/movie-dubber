@@ -100,7 +100,7 @@ class MainNavigationScreen extends StatelessWidget {
                     children: [
                       _buildNavItem(
                         index: 0,
-                        icon: Icons.auto_videocam_rounded,
+                        icon: Icons.videocam_rounded,
                         label: 'Dub',
                         isSelected: state.currentTabIndex == 0,
                         onTap: () => state.setTabIndex(0),
@@ -160,7 +160,8 @@ class MainNavigationScreen extends StatelessWidget {
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppColors.primaryContainer.withOpacity(0.25)
@@ -178,7 +179,9 @@ class MainNavigationScreen extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.onSurfaceVariant,
                     size: 22,
                   ),
                 ),
@@ -208,7 +211,8 @@ class MainNavigationScreen extends StatelessWidget {
             Text(
               label,
               style: AppTypography.labelSm.copyWith(
-                color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+                color:
+                    isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 11,
               ),

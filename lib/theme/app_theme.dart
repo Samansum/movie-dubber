@@ -52,7 +52,7 @@ class AppTheme {
         titleTextStyle: AppTypography.headlineSm,
         iconTheme: IconThemeData(color: AppColors.onSurface),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -72,9 +72,11 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceContainerLowest,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-        labelStyle: AppTypography.labelMd.copyWith(color: AppColors.onSurfaceVariant),
+        labelStyle:
+            AppTypography.labelMd.copyWith(color: AppColors.onSurfaceVariant),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.borderSubtle, width: 1),
@@ -85,7 +87,8 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primaryContainer, width: 1.5),
+          borderSide:
+              const BorderSide(color: AppColors.primaryContainer, width: 1.5),
         ),
       ),
     );
