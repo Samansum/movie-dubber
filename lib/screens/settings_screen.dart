@@ -22,13 +22,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _aliasController = TextEditingController();
   final TextEditingController _tokenController = TextEditingController();
   bool _obscureToken = true;
-  String _validationStatus = 'Awaiting validation';
-  bool _isValidating = false;
 
   final List<String> _models = [
-    'Gemini 1.5 Pro (High Fidelity)',
-    'Gemini 1.5 Flash (Ultra Fast)',
-    'Gemini 2.0 Flash Experimental',
+    'Gemini 2.5 Flash',
+    'Gemini 3.5 Flash',
+    'Gemini 3.7 Flash',
+    'Gemini 3.8 Flash',
   ];
 
   final List<String> _tones = [
@@ -50,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  void _verifyAndSaveKey() {
+  void _addApiKey() {
     final token = _tokenController.text.trim();
     if (token.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,36 +58,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    setState(() {
-      _isValidating = true;
-      _validationStatus = 'Pinging Gemini Endpoint...';
-    });
+    widget.state.addApiKey(_aliasController.text.trim(), token);
+    _aliasController.clear();
+    _tokenController.clear();
 
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (!mounted) return;
-      widget.state.addApiKey(_aliasController.text.trim(), token);
-      setState(() {
-        _isValidating = false;
-        _validationStatus = 'Verified & Stored Securely';
-        _aliasController.clear();
-        _tokenController.clear();
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.tertiaryContainer,
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text('Gemini API key verified and added to rotation pool!'),
-            ],
-          ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.primaryContainer,
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Text('Gemini API key saved!'),
+          ],
         ),
-      );
-    });
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -188,41 +175,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'Registered Keys',
-                    style: AppTypography.headlineSm.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${keys.length} Configured',
-                      style: AppTypography.labelSm.copyWith(fontSize: 10),
-                    ),
-                  ),
-                ],
+              Text(
+                'Registered Keys',
+                style: AppTypography.headlineSm.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                ),
               ),
-              TextButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All Gemini endpoints healthy! Avg latency: 122ms')),
-                  );
-                },
-                icon: const Icon(Icons.speed_rounded, size: 14, color: AppColors.secondary),
-                label: Text(
-                  'Ping All',
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                ),
+                child: Text(
+                  '${keys.length} Configured',
                   style: AppTypography.labelSm.copyWith(
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onSurface,
                   ),
                 ),
               ),
@@ -258,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 14),
 
                 // Key Alias Field
-                Text('Key Alias / Description', style: AppTypography.labelSm),
+                const Text('Key Alias / Description', style: AppTypography.labelSm),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _aliasController,
@@ -272,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
 
                 // Secret Token Field
-                Text('Gemini API Secret Token', style: AppTypography.labelSm),
+                const Text('Gemini API Secret Token', style: AppTypography.labelSm),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _tokenController,
@@ -296,58 +268,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
-                // Validation Feedback & Verify Action
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _validationStatus.contains('Verified')
-                                ? AppColors.tertiary
-                                : AppColors.outline,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _validationStatus,
-                          style: AppTypography.bodySm.copyWith(fontSize: 11),
-                        ),
-                      ],
+                // Add API Key Button
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryContainer,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryContainer,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      onPressed: _isValidating ? null : _verifyAndSaveKey,
-                      icon: _isValidating
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.verified_rounded, size: 16),
-                      label: Text(
-                        'Verify & Save',
-                        style: AppTypography.labelMd.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    onPressed: _addApiKey,
+                    icon: const Icon(Icons.key_rounded, size: 18),
+                    label: Text(
+                      'Add API Key',
+                      style: AppTypography.labelMd.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),

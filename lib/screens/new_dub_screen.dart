@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
+import '../services/edge_tts_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../widgets/animated_waveform.dart';
@@ -21,34 +23,98 @@ class NewDubScreen extends StatefulWidget {
 class _NewDubScreenState extends State<NewDubScreen> {
   bool _isPlayingPreview = false;
   bool _showAdvancedTuning = false;
-  String _currentVideoTitle = 'Cyber_Action_Trailer_1080p.mp4';
-  String _currentDuration = '02:45';
-  String _currentSpecs = '48.2 MB • H.264 / AAC';
+
+  // Video Selection State (null = Empty State)
+  int? _selectedVideoIndex;
+  String? _customVideoTitle;
+  String? _customDuration;
+  String? _customSpecs;
+  String? _customImagePath;
 
   final List<Map<String, String>> _sampleVideos = [
     {
       'title': 'Cyber_Action_Trailer_1080p.mp4',
       'duration': '02:45',
       'specs': '48.2 MB • H.264 / AAC • 1080p 60fps',
-      'image': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
     },
     {
       'title': 'Angkor_Heritage_Doc_Clip.mp4',
       'duration': '04:10',
       'specs': '68.5 MB • ProRes / AAC • 4K 24fps',
-      'image': 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
     },
     {
       'title': 'Tokyo_Neon_Night_Vlog.mp4',
       'duration': '01:30',
       'specs': '32.1 MB • H.265 / AAC • 1080p 30fps',
-      'image': 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
     },
   ];
 
-  int _selectedVideoIndex = 0;
+  bool get _hasSelectedVideo =>
+      _selectedVideoIndex != null || _customVideoTitle != null;
 
-  void _showReplaceVideoModal() {
+  String get _currentVideoTitle {
+    if (_customVideoTitle != null) return _customVideoTitle!;
+    if (_selectedVideoIndex != null) {
+      return _sampleVideos[_selectedVideoIndex!]['title']!;
+    }
+    return '';
+  }
+
+  String get _currentDuration {
+    if (_customDuration != null) return _customDuration!;
+    if (_selectedVideoIndex != null) {
+      return _sampleVideos[_selectedVideoIndex!]['duration']!;
+    }
+    return '';
+  }
+
+  String get _currentSpecs {
+    if (_customSpecs != null) return _customSpecs!;
+    if (_selectedVideoIndex != null) {
+      return _sampleVideos[_selectedVideoIndex!]['specs']!;
+    }
+    return '';
+  }
+
+  String get _currentImage {
+    if (_customImagePath != null) return _customImagePath!;
+    if (_selectedVideoIndex != null) {
+      return _sampleVideos[_selectedVideoIndex!]['image']!;
+    }
+    return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+  }
+
+  Future<void> _pickDeviceVideo() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
+        setState(() {
+          _selectedVideoIndex = null;
+          _customVideoTitle = file.name;
+          _customDuration = '02:30';
+          _customSpecs = '$sizeMb MB • Device Gallery';
+          _customImagePath =
+              'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+    }
+  }
+
+  void _showVideoSelectorModal() {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLow,
@@ -67,7 +133,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 children: [
                   Text(
                     'Select Source Video',
-                    style: AppTypography.headlineSm.copyWith(color: AppColors.onSurface),
+                    style: AppTypography.headlineSm
+                        .copyWith(color: AppColors.onSurface),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: AppColors.onSurfaceVariant),
@@ -76,16 +143,74 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+
+              // Pick from Device Gallery / File Option
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+                tileColor: AppColors.primaryContainer.withOpacity(0.15),
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add_photo_alternate_rounded,
+                      color: Colors.white, size: 24),
+                ),
+                title: Text(
+                  'Choose from Gallery or File',
+                  style: AppTypography.bodyMd.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                subtitle: Text(
+                  'Select MP4, MOV, or MKV video file from your device',
+                  style: AppTypography.bodySm,
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickDeviceVideo();
+                },
+              ),
+
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Expanded(child: Divider(color: AppColors.borderSubtle)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      'OR CHOOSE SAMPLE VIDEO',
+                      style: AppTypography.labelSm.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Expanded(child: Divider(color: AppColors.borderSubtle)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
               ...List.generate(_sampleVideos.length, (index) {
                 final vid = _sampleVideos[index];
-                final isSelected = index == _selectedVideoIndex;
+                final isSelected =
+                    _selectedVideoIndex == index && _customVideoTitle == null;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
+                  margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: isSelected ? AppColors.primaryContainer : AppColors.borderSubtle,
+                        color: isSelected
+                            ? AppColors.primaryContainer
+                            : AppColors.borderSubtle,
                         width: isSelected ? 1.5 : 1,
                       ),
                     ),
@@ -105,21 +230,21 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     ),
                     title: Text(
                       vid['title']!,
-                      style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                      style: AppTypography.bodyMd
+                          .copyWith(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
                       '${vid['duration']} • ${vid['specs']}',
                       style: AppTypography.bodySm,
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                        ? const Icon(Icons.check_circle_rounded,
+                            color: AppColors.primary)
                         : null,
                     onTap: () {
                       setState(() {
+                        _customVideoTitle = null;
                         _selectedVideoIndex = index;
-                        _currentVideoTitle = vid['title']!;
-                        _currentDuration = vid['duration']!;
-                        _currentSpecs = vid['specs']!;
                       });
                       Navigator.pop(ctx);
                     },
@@ -134,251 +259,33 @@ class _NewDubScreenState extends State<NewDubScreen> {
     );
   }
 
+  void _handleVoiceSampleTap(String voiceId, String khmerText) {
+    EdgeTtsService().togglePlaySample(
+      voiceId: voiceId,
+      khmerText: khmerText,
+      onStateChanged: () {
+        if (mounted) {
+          setState(() {
+            widget.state.setPlayingVoiceSampleId(
+              EdgeTtsService().currentlyPlayingVoiceId,
+            );
+          });
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    final currentVid = _sampleVideos[_selectedVideoIndex];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Cinematic 16:9 Video Viewport Card
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSubtle, width: 1),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      children: [
-                        // Background Video Still
-                        Positioned.fill(
-                          child: Image.network(
-                            currentVid['image']!,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-
-                        // Gradient Scrim
-                        Positioned.fill(
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color(0x990A0E16),
-                                  Colors.transparent,
-                                  Color(0xCC0A0E16),
-                                ],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Top Badges Overlay
-                        Positioned(
-                          top: 12,
-                          left: 12,
-                          right: 12,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerLowest.withOpacity(0.85),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-                                ),
-                                child: Text(
-                                  '1080p • 60 FPS',
-                                  style: AppTypography.codeMono.copyWith(fontSize: 11),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerLowest.withOpacity(0.85),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.timer_outlined,
-                                      color: AppColors.tertiary,
-                                      size: 13,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _currentDuration,
-                                      style: AppTypography.labelSm.copyWith(
-                                        color: AppColors.onSurface,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Center Play Button
-                        Center(
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _isPlayingPreview = !_isPlayingPreview;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(999),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryContainer.withOpacity(0.9),
-                                  shape: BoxShape.circle,
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x807C3AED),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    _isPlayingPreview
-                                        ? Icons.pause_rounded
-                                        : Icons.play_arrow_rounded,
-                                    color: Colors.white,
-                                    size: 30,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Bottom Meta & Replace Action
-                        Positioned(
-                          bottom: 12,
-                          left: 12,
-                          right: 12,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _currentVideoTitle,
-                                      style: AppTypography.headlineSm.copyWith(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        shadows: const [
-                                          Shadow(
-                                            color: Colors.black87,
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.album_outlined,
-                                          color: AppColors.onSurfaceVariant,
-                                          size: 13,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _currentSpecs,
-                                          style: AppTypography.bodySm.copyWith(
-                                            fontSize: 11,
-                                            color: AppColors.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _showReplaceVideoModal,
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceBright.withOpacity(0.85),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: AppColors.borderSubtle,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.swap_horiz_rounded,
-                                          color: AppColors.primary,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Replace',
-                                          style: AppTypography.labelSm.copyWith(
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // 1. Cinematic 16:9 Video Viewport Card (Empty State OR Selected Video)
+          _buildVideoViewport(),
 
           const SizedBox(height: 24),
 
@@ -396,7 +303,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
               const SizedBox(height: 2),
               Text(
                 'Single Choice • Multi-Speaker Cast or Solo Voice',
-                style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                style: AppTypography.bodySm
+                    .copyWith(color: AppColors.onSurfaceVariant),
               ),
             ],
           ),
@@ -408,7 +316,6 @@ class _NewDubScreenState extends State<NewDubScreen> {
             profile: VoiceProfile.autoCast,
             isSelected: state.selectedVoice.id == VoiceProfile.autoCast.id,
             onTap: () => state.selectVoice(VoiceProfile.autoCast),
-            customTrailing: null,
             child: Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(10),
@@ -440,7 +347,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
 
           const SizedBox(height: 12),
 
-          // Voice Option 2: Piseth Neural (Male)
+          // Voice Option 2: Piseth Natural (Male)
           _buildVoiceOptionCard(
             profile: VoiceProfile.pisethNeural,
             isSelected: state.selectedVoice.id == VoiceProfile.pisethNeural.id,
@@ -451,33 +358,41 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLowest.withOpacity(0.8),
+                        color:
+                            AppColors.surfaceContainerLowest.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.equalizer_rounded, color: AppColors.primary, size: 13),
+                          const Icon(Icons.equalizer_rounded,
+                              color: AppColors.primary, size: 13),
                           const SizedBox(width: 4),
-                          Text('Cinematic Deep Narrator', style: AppTypography.labelSm),
+                          Text('Cinematic Deep Narrator',
+                              style: AppTypography.labelSm),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLowest.withOpacity(0.8),
+                        color:
+                            AppColors.surfaceContainerLowest.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.bolt_rounded, color: AppColors.tertiary, size: 13),
+                          const Icon(Icons.bolt_rounded,
+                              color: AppColors.tertiary, size: 13),
                           const SizedBox(width: 4),
                           Text(
                             'Ultra Low Latency',
-                            style: AppTypography.labelSm.copyWith(color: AppColors.tertiary),
+                            style: AppTypography.labelSm
+                                .copyWith(color: AppColors.tertiary),
                           ),
                         ],
                       ),
@@ -485,60 +400,14 @@ class _NewDubScreenState extends State<NewDubScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Audio sample container with animated waveform
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    children: [
-                      InkWell(
-                        onTap: () => state.toggleVoiceSample(VoiceProfile.pisethNeural.id),
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            state.playingVoiceSampleId == VoiceProfile.pisethNeural.id
-                                ? Icons.pause_rounded
-                                : Icons.volume_up_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: AnimatedWaveform(
-                          isPlaying: state.playingVoiceSampleId == VoiceProfile.pisethNeural.id,
-                          barCount: 16,
-                          height: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        VoiceProfile.pisethNeural.khmerSampleText,
-                        style: AppTypography.bodySm.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildVoiceAudioPlayer(VoiceProfile.pisethNeural, state),
               ],
             ),
           ),
 
           const SizedBox(height: 12),
 
-          // Voice Option 3: Sreymom Neural (Female)
+          // Voice Option 3: Sreymon Natural (Female)
           _buildVoiceOptionCard(
             profile: VoiceProfile.sreymomNeural,
             isSelected: state.selectedVoice.id == VoiceProfile.sreymomNeural.id,
@@ -549,77 +418,39 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLowest.withOpacity(0.8),
+                        color:
+                            AppColors.surfaceContainerLowest.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.graphic_eq_rounded, color: AppColors.secondary, size: 13),
+                          const Icon(Icons.graphic_eq_rounded,
+                              color: AppColors.secondary, size: 13),
                           const SizedBox(width: 4),
-                          Text('Warm & Natural Storyteller', style: AppTypography.labelSm),
+                          Text('Warm & Natural Storyteller',
+                              style: AppTypography.labelSm),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLowest.withOpacity(0.8),
+                        color:
+                            AppColors.surfaceContainerLowest.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text('Optimal for Dialogues', style: AppTypography.labelSm),
+                      child: Text('Optimal for Dialogues',
+                          style: AppTypography.labelSm),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    children: [
-                      InkWell(
-                        onTap: () => state.toggleVoiceSample(VoiceProfile.sreymomNeural.id),
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            state.playingVoiceSampleId == VoiceProfile.sreymomNeural.id
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            color: AppColors.onSurface,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Sample: «${VoiceProfile.sreymomNeural.khmerSampleText}»',
-                          style: AppTypography.bodySm.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        VoiceProfile.sreymomNeural.durationText,
-                        style: AppTypography.codeMono.copyWith(fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildVoiceAudioPlayer(VoiceProfile.sreymomNeural, state),
               ],
             ),
           ),
@@ -658,13 +489,14 @@ class _NewDubScreenState extends State<NewDubScreen> {
                         ],
                       ),
                       Icon(
-                        _showAdvancedTuning ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                        _showAdvancedTuning
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
                         color: AppColors.onSurfaceVariant,
                       ),
                     ],
                   ),
                 ),
-
                 if (_showAdvancedTuning) ...[
                   const SizedBox(height: 16),
                   const Divider(color: AppColors.borderSubtle, height: 1),
@@ -712,7 +544,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Background Audio Ducking', style: AppTypography.labelMd),
+                      Text('Background Audio Ducking',
+                          style: AppTypography.labelMd),
                       Text(
                         '${state.duckingPercent.toInt()}% (Dialog Clear)',
                         style: AppTypography.codeMono,
@@ -732,10 +565,12 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
                       onPressed: () => state.resetTuning(),
-                      icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.primary),
+                      icon: const Icon(Icons.refresh_rounded,
+                          size: 14, color: AppColors.primary),
                       label: Text(
                         'Reset Defaults',
-                        style: AppTypography.labelSm.copyWith(color: AppColors.primary),
+                        style:
+                            AppTypography.labelSm.copyWith(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -750,20 +585,34 @@ class _NewDubScreenState extends State<NewDubScreen> {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
+              gradient: _hasSelectedVideo
+                  ? AppColors.primaryGradient
+                  : LinearGradient(
+                      colors: [
+                        AppColors.surfaceContainerHigh,
+                        AppColors.surfaceContainerLow,
+                      ],
+                    ),
               borderRadius: BorderRadius.circular(999),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x737C3AED),
-                  blurRadius: 24,
-                  offset: Offset(0, 6),
-                ),
-              ],
+              boxShadow: _hasSelectedVideo
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x737C3AED),
+                        blurRadius: 24,
+                        offset: Offset(0, 6),
+                      ),
+                    ]
+                  : null,
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
+                  if (!_hasSelectedVideo) {
+                    _showVideoSelectorModal();
+                    return;
+                  }
+
                   state.startNewDubbingJob(
                     videoTitle: _currentVideoTitle,
                     duration: _currentDuration,
@@ -774,24 +623,28 @@ class _NewDubScreenState extends State<NewDubScreen> {
                       backgroundColor: AppColors.surfaceContainerHigh,
                       content: Row(
                         children: [
-                          const Icon(Icons.auto_awesome, color: AppColors.tertiary, size: 20),
+                          const Icon(Icons.auto_awesome,
+                              color: AppColors.tertiary, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Dubbing pipeline started for $_currentVideoTitle!',
-                              style: AppTypography.bodyMd.copyWith(color: Colors.white),
+                              style: AppTypography.bodyMd
+                                  .copyWith(color: Colors.white),
                             ),
                           ),
                         ],
                       ),
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   );
                 },
                 borderRadius: BorderRadius.circular(999),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                   child: Column(
                     children: [
                       Row(
@@ -820,7 +673,9 @@ class _NewDubScreenState extends State<NewDubScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '4-Stage Compute • Est. time: ~1m 20s',
+                        _hasSelectedVideo
+                            ? '4-Stage Compute • Est. time: ~1m 20s'
+                            : 'Click to select source video first',
                         style: AppTypography.labelSm.copyWith(
                           color: AppColors.onPrimaryContainer.withOpacity(0.9),
                         ),
@@ -836,11 +691,422 @@ class _NewDubScreenState extends State<NewDubScreen> {
     );
   }
 
+  /// Builds the Video Viewport (Empty State OR Selected Video Viewport)
+  Widget _buildVideoViewport() {
+    if (!_hasSelectedVideo) {
+      // Empty State Viewport Card
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerHigh.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.primaryContainer.withOpacity(0.4),
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 16,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showVideoSelectorModal,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer.withOpacity(0.25),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primaryContainer.withOpacity(0.6),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.video_library_rounded,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Click to select video from gallery or file',
+                      style: AppTypography.headlineSm.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onSurface,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap to browse device gallery or choose sample files',
+                      style: AppTypography.bodySm.copyWith(
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Selected Video Viewport Card with Replace Button
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle, width: 1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                children: [
+                  // Background Video Still
+                  Positioned.fill(
+                    child: Image.network(
+                      _currentImage,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+
+                  // Gradient Scrim
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0x990A0E16),
+                            Colors.transparent,
+                            Color(0xCC0A0E16),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Top Badges Overlay
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLowest
+                                .withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                                color: AppColors.borderSubtle, width: 0.5),
+                          ),
+                          child: Text(
+                            '1080p • 60 FPS',
+                            style: AppTypography.codeMono.copyWith(fontSize: 11),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLowest
+                                .withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                                color: AppColors.borderSubtle, width: 0.5),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.timer_outlined,
+                                color: AppColors.tertiary,
+                                size: 13,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _currentDuration,
+                                style: AppTypography.labelSm.copyWith(
+                                  color: AppColors.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Center Play Button
+                  Center(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _isPlayingPreview = !_isPlayingPreview;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryContainer.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x807C3AED),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Icon(
+                              _isPlayingPreview
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Meta & Replace Action
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _currentVideoTitle,
+                                style: AppTypography.headlineSm.copyWith(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  shadows: const [
+                                    Shadow(
+                                      color: Colors.black87,
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.album_outlined,
+                                    color: AppColors.onSurfaceVariant,
+                                    size: 13,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      _currentSpecs,
+                                      style: AppTypography.bodySm.copyWith(
+                                        fontSize: 11,
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _showVideoSelectorModal,
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceBright.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: AppColors.borderSubtle,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.swap_horiz_rounded,
+                                    color: AppColors.primary,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Replace',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Builds consistent audio player UI for Piseth Natural and Sreymon Natural
+  Widget _buildVoiceAudioPlayer(VoiceProfile profile, AppState state) {
+    final isPlaying = state.playingVoiceSampleId == profile.id;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          // Play / Speaker Icon Button
+          InkWell(
+            onTap: () => _handleVoiceSampleTap(
+              profile.id,
+              profile.khmerSampleText,
+            ),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: isPlaying
+                    ? AppColors.primaryContainer
+                    : AppColors.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isPlaying
+                    ? Icons.volume_up_rounded
+                    : Icons.play_arrow_rounded,
+                color: isPlaying ? Colors.white : AppColors.onSurface,
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Audio Content: Waveform when playing vs Quote text when idle
+          Expanded(
+            child: isPlaying
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: AnimatedWaveform(
+                          isPlaying: true,
+                          barCount: 16,
+                          height: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        profile.khmerSampleText,
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  )
+                : Text(
+                    'Sample: «${profile.khmerSampleText}»',
+                    style: AppTypography.bodySm.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+          const SizedBox(width: 8),
+
+          Text(
+            profile.durationText,
+            style: AppTypography.codeMono.copyWith(fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVoiceOptionCard({
     required VoiceProfile profile,
     required bool isSelected,
     required VoidCallback onTap,
-    Widget? customTrailing,
     required Widget child,
   }) {
     return Container(
@@ -850,7 +1116,9 @@ class _NewDubScreenState extends State<NewDubScreen> {
             : AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? AppColors.primaryContainer : AppColors.borderSubtle,
+          color: isSelected
+              ? AppColors.primaryContainer
+              : AppColors.borderSubtle,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: isSelected
@@ -917,10 +1185,12 @@ class _NewDubScreenState extends State<NewDubScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: profile.type == VoiceType.autoCast
-                                        ? AppColors.tertiaryContainer.withOpacity(0.3)
+                                        ? AppColors.tertiaryContainer
+                                            .withOpacity(0.3)
                                         : (profile.type == VoiceType.male
                                             ? AppColors.primary.withOpacity(0.2)
                                             : AppColors.secondary.withOpacity(0.2)),
@@ -959,7 +1229,9 @@ class _NewDubScreenState extends State<NewDubScreen> {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : AppColors.surfaceBright,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.surfaceBright,
                         shape: BoxShape.circle,
                         boxShadow: isSelected
                             ? [

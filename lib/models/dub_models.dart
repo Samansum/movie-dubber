@@ -46,7 +46,7 @@ class VoiceProfile {
 
   static const VoiceProfile pisethNeural = VoiceProfile(
     id: 'voice_piseth',
-    name: 'Piseth Neural',
+    name: 'Piseth Natural',
     type: VoiceType.male,
     neuralCode: 'km-KH-PisethNeural',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
@@ -59,13 +59,13 @@ class VoiceProfile {
 
   static const VoiceProfile sreymomNeural = VoiceProfile(
     id: 'voice_sreymom',
-    name: 'Sreymom Neural',
+    name: 'Sreymon Natural',
     type: VoiceType.female,
     neuralCode: 'km-KH-SreymomNeural',
     avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
     roleTag: 'Warm & Natural Storyteller',
     badgeText: 'Optimal for Dialogues',
-    khmerSampleText: 'សូមស្វាគមន៍មកកាន់ CineDub',
+    khmerSampleText: 'សូមស្វាគមន៍មកកាន់ AI សមរាយរើង',
     durationText: '0:03',
     description: 'Expressive and clear female voice ideal for documentaries & dialogues.',
   );
@@ -189,4 +189,30 @@ class ApiKeyItem {
     required this.rpmMax,
     required this.latencyMs,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'alias': alias,
+      'maskedToken': maskedToken,
+      'model': model,
+      'status': status,
+      'rpmUsage': rpmUsage,
+      'rpmMax': rpmMax,
+      'latencyMs': latencyMs,
+    };
+  }
+
+  factory ApiKeyItem.fromJson(Map<String, dynamic> json) {
+    return ApiKeyItem(
+      id: json['id'] as String? ?? '',
+      alias: json['alias'] as String? ?? '',
+      maskedToken: json['maskedToken'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      status: json['status'] as String? ?? 'Active',
+      rpmUsage: json['rpmUsage'] as int? ?? 0,
+      rpmMax: json['rpmMax'] as int? ?? 60,
+      latencyMs: json['latencyMs'] as int? ?? 120,
+    );
+  }
 }

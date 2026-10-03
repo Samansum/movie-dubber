@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/dub_models.dart';
 
 class AppState extends ChangeNotifier {
+  SharedPreferences? _prefs;
+
   // Navigation
   int _currentTabIndex = 0;
   int get currentTabIndex => _currentTabIndex;
@@ -32,6 +36,7 @@ class AppState extends ChangeNotifier {
 
   void selectVoice(VoiceProfile profile) {
     _selectedVoice = profile;
+    _prefs?.setString('selected_voice_id', profile.id);
     notifyListeners();
   }
 
@@ -66,6 +71,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPlayingVoiceSampleId(String? id) {
+    _playingVoiceSampleId = id;
+    notifyListeners();
+  }
+
   // Tasks Management
   Timer? _progressTimer;
 
@@ -95,42 +105,11 @@ class AppState extends ChangeNotifier {
   String _saveGalleryState = 'idle'; // 'idle', 'saving', 'saved'
   String get saveGalleryState => _saveGalleryState;
 
-  // Settings & API Keys
-  final List<ApiKeyItem> _apiKeys = [
-    const ApiKeyItem(
-      id: 'key_1',
-      alias: 'Personal Key (Gemini 1.5 Pro)',
-      maskedToken: 'AIzaSyD•••••••••••••••••••••98xK1',
-      model: 'Gemini 1.5 Pro',
-      status: 'Active',
-      rpmUsage: 12,
-      rpmMax: 15,
-      latencyMs: 142,
-    ),
-    const ApiKeyItem(
-      id: 'key_2',
-      alias: 'Studio Team Key (Gemini 1.5 Flash)',
-      maskedToken: 'AIzaSyB•••••••••••••••••••••44Lz9',
-      model: 'Gemini 1.5 Flash',
-      status: 'Standby',
-      rpmUsage: 4,
-      rpmMax: 60,
-      latencyMs: 98,
-    ),
-    const ApiKeyItem(
-      id: 'key_3',
-      alias: 'Backup Free Tier',
-      maskedToken: 'AIzaSyA•••••••••••••••••••••77qW2',
-      model: 'Gemini 1.5 Flash',
-      status: 'Cooldown',
-      rpmUsage: 15,
-      rpmMax: 15,
-      latencyMs: 210,
-    ),
-  ];
+  // Settings & API Keys (Default to empty list, no dummy keys)
+  final List<ApiKeyItem> _apiKeys = [];
   List<ApiKeyItem> get apiKeys => List.unmodifiable(_apiKeys);
 
-  String _selectedModel = 'Gemini 1.5 Pro (High Fidelity)';
+  String _selectedModel = 'Gemini 2.5 Flash';
   String get selectedModel => _selectedModel;
 
   String _selectedTone = 'Cinematic Dynamic';
@@ -142,10 +121,68 @@ class AppState extends ChangeNotifier {
   AppState() {
     _initializeDefaultTasks();
     _startLiveSimulation();
+    loadSettingsFromStorage();
+  }
+
+  Future<void> loadSettingsFromStorage() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      
+      // Restore selected voice profile
+      final savedVoiceId = _prefs?.getString('selected_voice_id');
+      if (savedVoiceId != null) {
+        final match = VoiceProfile.allProfiles.firstWhere(
+          (p) => p.id == savedVoiceId,
+          orElse: () => VoiceProfile.autoCast,
+        );
+        _selectedVoice = match;
+      }
+
+      // Restore selected Gemini model
+      final savedModel = _prefs?.getString('selected_gemini_model');
+      if (savedModel != null && savedModel.isNotEmpty) {
+        _selectedModel = savedModel;
+      }
+
+      // Restore Khmer dubbing tone
+      final savedTone = _prefs?.getString('selected_tone');
+      if (savedTone != null && savedTone.isNotEmpty) {
+        _selectedTone = savedTone;
+      }
+
+      // Restore key rotation strategy
+      final savedStrategy = _prefs?.getString('key_rotation_strategy');
+      if (savedStrategy != null && savedStrategy.isNotEmpty) {
+        _keyRotationStrategy = savedStrategy;
+      }
+
+      // Restore stored API keys pool
+      final keysListJson = _prefs?.getStringList('stored_api_keys');
+      if (keysListJson != null) {
+        _apiKeys.clear();
+        for (final itemStr in keysListJson) {
+          try {
+            final map = jsonDecode(itemStr) as Map<String, dynamic>;
+            _apiKeys.add(ApiKeyItem.fromJson(map));
+          } catch (e) {
+            debugPrint('Error parsing saved API key item: $e');
+          }
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading settings from storage: $e');
+    }
+  }
+
+  void _saveApiKeysToStorage() {
+    final listJson = _apiKeys.map((item) => jsonEncode(item.toJson())).toList();
+    _prefs?.setStringList('stored_api_keys', listJson);
   }
 
   void _initializeDefaultTasks() {
-    _activeTask = DubbingTask(
+    _activeTask = const DubbingTask(
       id: 'task_active_01',
       videoTitle: 'Cyber_Action_Trailer_1080p.mp4',
       duration: '02:45',
@@ -155,7 +192,7 @@ class AppState extends ChangeNotifier {
       isProcessing: true,
       isQueued: false,
       isCompleted: false,
-      stages: const [
+      stages: [
         PipelineStage(
           stageNumber: 1,
           title: '1. Extract audio',
@@ -436,16 +473,19 @@ class AppState extends ChangeNotifier {
   // Settings & Keys
   void setSelectedModel(String model) {
     _selectedModel = model;
+    _prefs?.setString('selected_gemini_model', model);
     notifyListeners();
   }
 
   void setSelectedTone(String tone) {
     _selectedTone = tone;
+    _prefs?.setString('selected_tone', tone);
     notifyListeners();
   }
 
   void setKeyRotationStrategy(String strategy) {
     _keyRotationStrategy = strategy;
+    _prefs?.setString('key_rotation_strategy', strategy);
     notifyListeners();
   }
 
@@ -466,11 +506,13 @@ class AppState extends ChangeNotifier {
         latencyMs: 115,
       ),
     );
+    _saveApiKeysToStorage();
     notifyListeners();
   }
 
   void removeApiKey(String id) {
     _apiKeys.removeWhere((item) => item.id == id);
+    _saveApiKeysToStorage();
     notifyListeners();
   }
 
