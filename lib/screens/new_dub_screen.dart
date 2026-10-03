@@ -379,130 +379,130 @@ class _NewDubScreenState extends State<NewDubScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
-
-          // 3. Audio Tuning Controls Accordion
-          GlassCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _showAdvancedTuning = !_showAdvancedTuning;
-                    });
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.tune_rounded,
-                            color: AppColors.secondary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Audio Tuning & Lip-Sync Controls',
-                            style: AppTypography.labelLg.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Icon(
-                        _showAdvancedTuning
-                            ? Icons.expand_less_rounded
-                            : Icons.expand_more_rounded,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-                if (_showAdvancedTuning) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: AppColors.borderSubtle, height: 1),
-                  const SizedBox(height: 16),
-
-                  // Pitch Slider
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Voice Pitch Offset', style: AppTypography.labelMd),
-                      Text(
-                        '${state.pitchHz > 0 ? "+${state.pitchHz.toInt()}" : state.pitchHz.toInt()} Hz ${state.pitchHz == 0 ? "(Standard)" : ""}',
-                        style: AppTypography.codeMono,
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: state.pitchHz,
-                    min: -10,
-                    max: 10,
-                    divisions: 20,
-                    onChanged: (val) => state.setPitch(val),
-                  ),
-
-                  // Speed Multiplier Slider
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Speech Speed & Cadence',
-                          style: AppTypography.labelMd),
-                      Text(
-                        '${state.speedMultiplier.toStringAsFixed(2)}x ${state.speedMultiplier == 1.05 ? "(Auto-Align)" : ""}',
-                        style: AppTypography.codeMono,
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: state.speedMultiplier,
-                    min: 0.8,
-                    max: 1.4,
-                    divisions: 12,
-                    onChanged: (val) => state.setSpeed(val),
-                  ),
-
-                  // Audio Ducking Slider
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Background Audio Ducking',
-                          style: AppTypography.labelMd),
-                      Text(
-                        '${state.duckingPercent.toInt()}% (Dialog Clear)',
-                        style: AppTypography.codeMono,
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: state.duckingPercent,
-                    min: -50,
-                    max: -10,
-                    divisions: 8,
-                    onChanged: (val) => state.setDucking(val),
-                  ),
-
-                  // Reset defaults
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => state.resetTuning(),
-                      icon: const Icon(Icons.refresh_rounded,
-                          size: 14, color: AppColors.primary),
-                      label: Text(
-                        'Reset Defaults',
-                        style: AppTypography.labelSm
-                            .copyWith(color: AppColors.primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          // const SizedBox(height: 20),
+          //
+          // // 3. Audio Tuning Controls Accordion
+          // GlassCard(
+          //   padding: const EdgeInsets.all(16),
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       InkWell(
+          //         onTap: () {
+          //           setState(() {
+          //             _showAdvancedTuning = !_showAdvancedTuning;
+          //           });
+          //         },
+          //         child: Row(
+          //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //           children: [
+          //             Row(
+          //               children: [
+          //                 const Icon(
+          //                   Icons.tune_rounded,
+          //                   color: AppColors.secondary,
+          //                   size: 20,
+          //                 ),
+          //                 const SizedBox(width: 8),
+          //                 Text(
+          //                   'Audio Tuning & Lip-Sync Controls',
+          //                   style: AppTypography.labelLg.copyWith(
+          //                     fontWeight: FontWeight.w700,
+          //                   ),
+          //                 ),
+          //               ],
+          //             ),
+          //             Icon(
+          //               _showAdvancedTuning
+          //                   ? Icons.expand_less_rounded
+          //                   : Icons.expand_more_rounded,
+          //               color: AppColors.onSurfaceVariant,
+          //             ),
+          //           ],
+          //         ),
+          //       ),
+          //       if (_showAdvancedTuning) ...[
+          //         const SizedBox(height: 16),
+          //         const Divider(color: AppColors.borderSubtle, height: 1),
+          //         const SizedBox(height: 16),
+          //
+          //         // Pitch Slider
+          //         Row(
+          //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //           children: [
+          //             Text('Voice Pitch Offset', style: AppTypography.labelMd),
+          //             Text(
+          //               '${state.pitchHz > 0 ? "+${state.pitchHz.toInt()}" : state.pitchHz.toInt()} Hz ${state.pitchHz == 0 ? "(Standard)" : ""}',
+          //               style: AppTypography.codeMono,
+          //             ),
+          //           ],
+          //         ),
+          //         Slider(
+          //           value: state.pitchHz,
+          //           min: -10,
+          //           max: 10,
+          //           divisions: 20,
+          //           onChanged: (val) => state.setPitch(val),
+          //         ),
+          //
+          //         // Speed Multiplier Slider
+          //         Row(
+          //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //           children: [
+          //             Text('Speech Speed & Cadence',
+          //                 style: AppTypography.labelMd),
+          //             Text(
+          //               '${state.speedMultiplier.toStringAsFixed(2)}x ${state.speedMultiplier == 1.05 ? "(Auto-Align)" : ""}',
+          //               style: AppTypography.codeMono,
+          //             ),
+          //           ],
+          //         ),
+          //         Slider(
+          //           value: state.speedMultiplier,
+          //           min: 0.8,
+          //           max: 1.4,
+          //           divisions: 12,
+          //           onChanged: (val) => state.setSpeed(val),
+          //         ),
+          //
+          //         // Audio Ducking Slider
+          //         Row(
+          //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //           children: [
+          //             Text('Background Audio Ducking',
+          //                 style: AppTypography.labelMd),
+          //             Text(
+          //               '${state.duckingPercent.toInt()}% (Dialog Clear)',
+          //               style: AppTypography.codeMono,
+          //             ),
+          //           ],
+          //         ),
+          //         Slider(
+          //           value: state.duckingPercent,
+          //           min: -50,
+          //           max: -10,
+          //           divisions: 8,
+          //           onChanged: (val) => state.setDucking(val),
+          //         ),
+          //
+          //         // Reset defaults
+          //         Align(
+          //           alignment: Alignment.centerRight,
+          //           child: TextButton.icon(
+          //             onPressed: () => state.resetTuning(),
+          //             icon: const Icon(Icons.refresh_rounded,
+          //                 size: 14, color: AppColors.primary),
+          //             label: Text(
+          //               'Reset Defaults',
+          //               style: AppTypography.labelSm
+          //                   .copyWith(color: AppColors.primary),
+          //             ),
+          //           ),
+          //         ),
+          //       ],
+          //     ],
+          //   ),
+          // ),
 
           const SizedBox(height: 24),
 
@@ -512,7 +512,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
             decoration: BoxDecoration(
               gradient: _hasSelectedVideo
                   ? AppColors.primaryGradient
-                  : LinearGradient(
+                  : const LinearGradient(
                       colors: [
                         AppColors.surfaceContainerHigh,
                         AppColors.surfaceContainerLow,
