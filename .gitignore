@@ -1,6 +1,36 @@
-.idea
-.vscode
-.dart_tool
-build
-dist
-*.lock
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+dist/
+coverage/
+
+# Android (commit the android folder, ignore generated and secret files)
+android_old/
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/gradle/wrapper/gradle-wrapper.jar
+android/captures/
+*.jks
+*.keystore
+
+# Windows / web generated files
+windows/flutter/ephemeral/
+.flutter-plugins-dependencies
+
+# OS files
+.DS_Store
+Thumbs.db
