@@ -403,7 +403,7 @@ class AppState extends ChangeNotifier {
         PipelineStage(
           stageNumber: 3,
           title: '3. Generate audio',
-          description: 'Edge-TTS ${_selectedVoice.neuralCode}',
+          description: 'Edge-TTS ${_selectedVoice.id}',
           status: StageStatus.pending,
           badgeText: 'Pending',
           icon: Icons.graphic_eq_rounded,

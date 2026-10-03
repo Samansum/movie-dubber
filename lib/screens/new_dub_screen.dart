@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../services/edge_tts_service.dart';
@@ -137,7 +140,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                         .copyWith(color: AppColors.onSurface),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.onSurfaceVariant),
+                    icon: const Icon(Icons.close,
+                        color: AppColors.onSurfaceVariant),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -354,51 +358,6 @@ class _NewDubScreenState extends State<NewDubScreen> {
             onTap: () => state.selectVoice(VoiceProfile.pisethNeural),
             child: Column(
               children: [
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            AppColors.surfaceContainerLowest.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.equalizer_rounded,
-                              color: AppColors.primary, size: 13),
-                          const SizedBox(width: 4),
-                          Text('Cinematic Deep Narrator',
-                              style: AppTypography.labelSm),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            AppColors.surfaceContainerLowest.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.bolt_rounded,
-                              color: AppColors.tertiary, size: 13),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Ultra Low Latency',
-                            style: AppTypography.labelSm
-                                .copyWith(color: AppColors.tertiary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 8),
                 _buildVoiceAudioPlayer(VoiceProfile.pisethNeural, state),
               ],
@@ -414,41 +373,6 @@ class _NewDubScreenState extends State<NewDubScreen> {
             onTap: () => state.selectVoice(VoiceProfile.sreymomNeural),
             child: Column(
               children: [
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            AppColors.surfaceContainerLowest.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.graphic_eq_rounded,
-                              color: AppColors.secondary, size: 13),
-                          const SizedBox(width: 4),
-                          Text('Warm & Natural Storyteller',
-                              style: AppTypography.labelSm),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            AppColors.surfaceContainerLowest.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text('Optimal for Dialogues',
-                          style: AppTypography.labelSm),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 8),
                 _buildVoiceAudioPlayer(VoiceProfile.sreymomNeural, state),
               ],
@@ -525,7 +449,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Speech Speed & Cadence', style: AppTypography.labelMd),
+                      Text('Speech Speed & Cadence',
+                          style: AppTypography.labelMd),
                       Text(
                         '${state.speedMultiplier.toStringAsFixed(2)}x ${state.speedMultiplier == 1.05 ? "(Auto-Align)" : ""}',
                         style: AppTypography.codeMono,
@@ -569,8 +494,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           size: 14, color: AppColors.primary),
                       label: Text(
                         'Reset Defaults',
-                        style:
-                            AppTypography.labelSm.copyWith(color: AppColors.primary),
+                        style: AppTypography.labelSm
+                            .copyWith(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -839,7 +764,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           ),
                           child: Text(
                             '1080p • 60 FPS',
-                            style: AppTypography.codeMono.copyWith(fontSize: 11),
+                            style:
+                                AppTypography.codeMono.copyWith(fontSize: 11),
                           ),
                         ),
                         Container(
@@ -979,7 +905,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceBright.withOpacity(0.85),
+                                color:
+                                    AppColors.surfaceBright.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
                                   color: AppColors.borderSubtle,
@@ -1047,9 +974,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                isPlaying
-                    ? Icons.volume_up_rounded
-                    : Icons.play_arrow_rounded,
+                isPlaying ? Icons.volume_up_rounded : Icons.play_arrow_rounded,
                 color: isPlaying ? Colors.white : AppColors.onSurface,
                 size: 16,
               ),
@@ -1060,7 +985,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
           // Audio Content: Waveform when playing vs Quote text when idle
           Expanded(
             child: isPlaying
-                ? Row(
+                ? const Row(
                     children: [
                       Expanded(
                         child: AnimatedWaveform(
@@ -1068,17 +993,6 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           barCount: 16,
                           height: 18,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        profile.khmerSampleText,
-                        style: AppTypography.bodySm.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   )
@@ -1116,9 +1030,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
             : AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected
-              ? AppColors.primaryContainer
-              : AppColors.borderSubtle,
+          color:
+              isSelected ? AppColors.primaryContainer : AppColors.borderSubtle,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: isSelected
@@ -1153,14 +1066,14 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           decoration: BoxDecoration(
                             color: AppColors.primaryContainer.withOpacity(0.3),
                             shape: BoxShape.circle,
-                            image: profile.avatarUrl.isNotEmpty
+                            image: profile.imagePath.isNotEmpty
                                 ? DecorationImage(
-                                    image: NetworkImage(profile.avatarUrl),
+                                    image: AssetImage(profile.imagePath),
                                     fit: BoxFit.cover,
                                   )
                                 : null,
                           ),
-                          child: profile.avatarUrl.isEmpty
+                          child: profile.imagePath.isEmpty
                               ? const Center(
                                   child: Icon(
                                     Icons.group_work_rounded,
@@ -1193,7 +1106,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                                             .withOpacity(0.3)
                                         : (profile.type == VoiceType.male
                                             ? AppColors.primary.withOpacity(0.2)
-                                            : AppColors.secondary.withOpacity(0.2)),
+                                            : AppColors.secondary
+                                                .withOpacity(0.2)),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
@@ -1213,7 +1127,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              profile.neuralCode,
+                              profile.roleTag,
                               style: AppTypography.bodySm.copyWith(
                                 color: AppColors.secondary,
                                 fontSize: 11,

@@ -10,8 +10,7 @@ class VoiceProfile {
   final String id;
   final String name;
   final VoiceType type;
-  final String neuralCode;
-  final String avatarUrl;
+  final String imagePath;
   final String roleTag;
   final String badgeText;
   final String khmerSampleText;
@@ -22,8 +21,7 @@ class VoiceProfile {
     required this.id,
     required this.name,
     required this.type,
-    required this.neuralCode,
-    required this.avatarUrl,
+    required this.imagePath,
     required this.roleTag,
     required this.badgeText,
     required this.khmerSampleText,
@@ -35,8 +33,7 @@ class VoiceProfile {
     id: 'voice_auto',
     name: 'Smart Multi-Speaker',
     type: VoiceType.autoCast,
-    neuralCode: 'AI Dynamic Cast Detection',
-    avatarUrl: '',
+    imagePath: '',
     roleTag: 'Auto-Cast Engine',
     badgeText: 'Auto-Cast',
     khmerSampleText: 'ស្វ័យប្រវត្តិកំណត់សំឡេងតួអង្គ',
@@ -45,27 +42,25 @@ class VoiceProfile {
   );
 
   static const VoiceProfile pisethNeural = VoiceProfile(
-    id: 'voice_piseth',
-    name: 'Piseth Natural',
+    id: 'km-KH-PisethNeural',
+    name: 'Piseth Neural',
     type: VoiceType.male,
-    neuralCode: 'km-KH-PisethNeural',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    imagePath: 'assets/images/piseth.jpg',
     roleTag: 'Cinematic Deep Narrator',
     badgeText: 'Ultra Low Latency',
-    khmerSampleText: 'សួស្តី! ខ្ញុំជាសំឡេងបកប្រែ',
+    khmerSampleText: 'សូមស្វាគមន៍មកកាន់ អេអាយ សម្រាយរឿង។',
     durationText: '0:03',
     description: 'Resonant, authoritative male narration for action & cinema trailers.',
   );
 
   static const VoiceProfile sreymomNeural = VoiceProfile(
-    id: 'voice_sreymom',
-    name: 'Sreymon Natural',
+    id: 'km-KH-SreymomNeural',
+    name: 'Sreymon Neural',
     type: VoiceType.female,
-    neuralCode: 'km-KH-SreymomNeural',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
+    imagePath: 'assets/images/sreymom.jpg',
     roleTag: 'Warm & Natural Storyteller',
     badgeText: 'Optimal for Dialogues',
-    khmerSampleText: 'សូមស្វាគមន៍មកកាន់ AI សមរាយរើង',
+    khmerSampleText: 'សូមស្វាគមន៍មកកាន់ អេអាយ សម្រាយរឿង។',
     durationText: '0:03',
     description: 'Expressive and clear female voice ideal for documentaries & dialogues.',
   );

@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+
 import 'package:audioplayers/audioplayers.dart';
+import 'package:edge_tts/edge_tts.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 class EdgeTtsService {
   static final EdgeTtsService _instance = EdgeTtsService._internal();
+
   factory EdgeTtsService() => _instance;
+
   EdgeTtsService._internal() {
     _initAudioPlayer();
   }
@@ -18,16 +23,49 @@ class EdgeTtsService {
   void _initAudioPlayer() {
     _audioPlayer.onPlayerComplete.listen((_) {
       _currentlyPlayingVoiceId = null;
-      if (_onPlaybackCompleted != null) {
-        _onPlaybackCompleted!();
-      }
+      _onPlaybackCompleted?.call();
     });
   }
 
   String? get currentlyPlayingVoiceId => _currentlyPlayingVoiceId;
 
-  /// Fetch audio from Google/Edge TTS for the given voice ID and Khmer sample text.
-  /// Caches the generated MP3 locally so subsequent calls play directly from cache.
+  /// Synthesizes [text] with an Edge neural voice such as
+  /// `km-KH-PisethNeural` or `km-KH-SreymomNeural` and returns MP3 bytes.
+  Future<Uint8List> synthesize({
+    required String text,
+    required String voice,
+    String rate = '+0%',
+    String pitch = '+0Hz',
+    String volume = '+0%',
+  }) async {
+    final tts = Communicate(
+      text: text,
+      voice: voice,
+      rate: rate,
+      pitch: pitch,
+      volume: volume,
+    );
+
+    final audioBuilder = BytesBuilder(copy: false);
+
+    // Stream audio events directly using type pattern matching
+    await for (final event in tts.stream()) {
+      if (event is AudioDataEvent) {
+        audioBuilder.add(event.data);
+      }
+    }
+
+    final bytes = audioBuilder.takeBytes();
+    if (bytes.isEmpty) {
+      throw Exception('Edge TTS returned no audio for voice $voice');
+    }
+    return bytes;
+  }
+
+  // ---- Public API ----
+
+  /// Fetch audio from Edge TTS for the given voice ID (e.g. km-KH-PisethNeural)
+  /// and Khmer sample text. Caches the MP3 locally.
   Future<File> getOrFetchAudio({
     required String voiceId,
     required String khmerText,
@@ -40,32 +78,15 @@ class EdgeTtsService {
       return cacheFile;
     }
 
-    debugPrint('[EdgeTtsService] Fetching audio from TTS endpoint for $voiceId...');
-    final encodedText = Uri.encodeComponent(khmerText);
-    // Google TTS public endpoint for Khmer
-    final url = Uri.parse(
-      'https://translate.google.com/translate_tts?ie=UTF-8&q=$encodedText&tl=km&client=tw-ob',
-    );
+    debugPrint('[EdgeTtsService] Fetching audio from Edge TTS for $voiceId...');
 
-    final response = await http.get(
-      url,
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    );
+    final bytes = await synthesize(text: khmerText, voice: voiceId);
+    await cacheFile.writeAsBytes(bytes, flush: true);
 
-    if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-      await cacheFile.writeAsBytes(response.bodyBytes);
-      debugPrint('[EdgeTtsService] Saved TTS audio to ${cacheFile.path}');
-      return cacheFile;
-    } else {
-      throw Exception('Failed to fetch TTS audio: ${response.statusCode}');
-    }
+    debugPrint('[EdgeTtsService] Saved TTS audio to ${cacheFile.path}');
+    return cacheFile;
   }
 
-  /// Play audio for a specific voice profile.
-  /// If already playing this voice, it stops playback.
   Future<void> togglePlaySample({
     required String voiceId,
     required String khmerText,
