@@ -39,6 +39,10 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
   /// Id of the job currently loaded into [_controller].
   String? _loadedTaskId;
 
+  /// Corner radius shared by the video card and its clipped content, so the
+  /// picture meets the card edge with matching corners and no padding.
+  static const double _videoRadius = 18;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +66,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
       _loadFor(task);
     }
   }
+
   /// Points the player at [task]'s rendered output, tearing down any previous
   /// controller first.
   Future<void> _loadFor(DubbingTask? task) async {
@@ -106,6 +111,15 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
         return;
       }
       controller.addListener(_onPlaybackTick);
+
+      // Start playing straight away so the user does not have to tap play
+      // after opening the job from the Queue screen.
+      await controller.play();
+
+      if (_disposed) {
+        await controller.dispose();
+        return;
+      }
       setState(() {
         _controller = controller;
         _isLoading = false;
@@ -179,6 +193,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
     final s = totalSec % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
+
   /// Builds the screen body: banner, real player, and the Save action.
   @override
   Widget build(BuildContext context) {
@@ -201,10 +216,15 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
           _buildVideoViewport(),
           const SizedBox(height: 24),
           _buildSaveButton(),
-          if (widget.state.saveGalleryError != null) ...[
-            const SizedBox(height: 12),
-            _buildSaveError(),
-          ],
+          // The button always stays put; success is confirmed below it.
+          // if (widget.state.saveGalleryState == 'saved') ...[
+          //   const SizedBox(height: 12),
+          //   _buildSavedConfirmation(),
+          // ],
+          // if (widget.state.saveGalleryError != null) ...[
+          //   const SizedBox(height: 12),
+          //   _buildSaveError(),
+          // ],
         ],
       ),
     );
@@ -254,6 +274,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
       ),
     );
   }
+
   /// Telemetry header bound to the real job instead of hard-coded values.
   Widget _buildBanner(DubbingTask task) {
     final controller = _controller;
@@ -344,20 +365,35 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
       ),
     );
   }
-  /// Viewport rendering the real decoded frames, with a play/pause trigger and a
-  /// scrubber driven by the controller.
+
+  /// Viewport rendering the real decoded frames edge-to-edge inside a card.
+  ///
+  /// Tapping anywhere on the picture toggles playback. While the video is
+  /// playing no overlay is drawn at all; the play button only appears once the
+  /// user has paused it (or it reached the end).
   Widget _buildVideoViewport() {
     final controller = _controller;
     final ready = !_isLoading && _loadError == null && controller != null;
+    final isPlaying = ready && controller.value.isPlaying;
+    final radius = BorderRadius.circular(_videoRadius);
 
-    return GlassCard(
-      padding: const EdgeInsets.all(8),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55000000),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      // No padding: the video runs to the very edge of the card.
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radius,
         child: AspectRatio(
-          aspectRatio: (controller != null && controller.value.isInitialized)
-              ? controller.value.aspectRatio
-              : 16 / 9,
+          aspectRatio: ready ? controller.value.aspectRatio : 16 / 9,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -395,47 +431,19 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
                     ),
                   ),
                 )
-              else if (controller != null)
-                VideoPlayer(controller)
               else
-                const SizedBox.shrink(),
+                VideoPlayer(controller!),
 
-              // Center play / pause trigger
+              // Whole-surface tap target. Sits *below* the play button and the
+              // scrubber so those keep their own gestures.
               if (ready)
-                Center(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _togglePlay,
-                      borderRadius: BorderRadius.circular(999),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color:
-                              AppColors.primaryContainer.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x807C3AED),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Icon(
-                            controller.value.isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 34,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _togglePlay,
                 ),
+
+              // Play button: only while paused.
+              if (ready && !isPlaying) Center(child: _buildPlayButton()),
 
               // Bottom scrubber
               if (ready)
@@ -470,16 +478,61 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
                     ),
                   ),
                 ),
+
+              // Border painted last so it is not covered by the video.
+              IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    border: Border.all(color: AppColors.borderSubtle, width: 1),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  /// Centered play trigger, shown only when the video is paused.
+  Widget _buildPlayButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _togglePlay,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withOpacity(0.9),
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x807C3AED),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Primary action: copies the rendered video into the device's Videos dir.
   Widget _buildSaveButton() {
     final saveState = widget.state.saveGalleryState;
     final isBusy = saveState == 'saving';
+    final isSaved = saveState == 'saved';
 
     final (label, icon) = switch (saveState) {
       'saving' => ('Saving…', null),
@@ -491,7 +544,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: saveState == 'saved'
+        gradient: isSaved
             ? const LinearGradient(
                 colors: [Color(0xFF007650), Color(0xFF10B981)])
             : const LinearGradient(
@@ -508,7 +561,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isBusy ? null : () => widget.state.saveToGallery(),
+          onTap: isBusy || isSaved ? null : () => widget.state.saveToGallery(),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),

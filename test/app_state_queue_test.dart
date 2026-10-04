@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:khmer_dubber_mobile/models/dub_models.dart';
+import 'package:khmer_dubber_mobile/screens/completed_player_screen.dart';
 import 'package:khmer_dubber_mobile/services/app_state.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/dubbing_pipeline.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/ffmpeg_dubbing_service.dart';
@@ -678,6 +680,43 @@ group('Player screen selection', () {
       expect(state.saveGalleryState, 'error',
           reason: 'must not claim success for a file that does not exist');
       expect(state.saveGalleryError, contains('no longer exists'));
+
+      state.dispose();
+    });
+
+    testWidgets(
+        'the Save to Gallery button stays on screen after being tapped',
+        (tester) async {
+      final created = <FakePipeline>[];
+      final state = buildState(created, steps: [0, 1, 2, 3]);
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+      state.openTaskInPlayer(state.completedTasks.single);
+
+      await tester.pumpWidget(
+        MaterialApp(home: CompletedPlayerScreen(state: state)),
+      );
+      await tester.pumpAndSettle();
+
+      final saveButton = find.text('Save to Gallery');
+      expect(saveButton, findsOneWidget);
+
+      // The button sits below the video card, so scroll it into view first.
+      await tester.ensureVisible(saveButton);
+      await tester.pumpAndSettle();
+
+      // Tap it. The underlying file does not exist, so this exercises the
+      // failure path — the button must still be there afterwards.
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save to Gallery'), findsOneWidget,
+          reason: 'the control must never be removed once it has been used');
+      expect(state.saveGalleryState, 'error');
+      // The raw reason is surfaced rather than a false success.
+      expect(find.textContaining('no longer exists'), findsOneWidget);
 
       state.dispose();
     });

@@ -143,13 +143,15 @@ The Settings tab manages a **pool** of Gemini keys with rotation strategies (`Ra
 * **Play from the Queue**: each **Recently Completed** card has a **Play** button that opens *that specific* job (`AppState.openTaskInPlayer`) and switches to the Player tab. When nothing was opened explicitly, `AppState.playerTask` falls back to the newest successful render.
 * **Status & Telemetry Banner**: Rendering & sync complete banner, bound to the real job — file name, `fileSpecs` and voice are read from the task, and duration / playback position come from the decoder.
 * **16:9 Video Player Viewport**:
-  * Real decoded frames via `VideoPlayerController.file`, with the aspect ratio taken from the source.
-  * Play / Pause floating glass button with glowing violet halo; replays from the start once the video has finished.
-  * **Interactive Scrubber**: seek bar bound to the controller's position/duration.
+  * **Edge-to-edge**: the decoded frames run to the very edge of the card with **no inner padding**, and the clip radius matches the card radius (`_videoRadius`, 18) so the corners line up. The border is painted last so the picture never covers it.
+  * **Auto-plays** as soon as the controller is ready — tapping **Play** in the Queue opens the Player and playback starts immediately, with no second tap required.
+  * **Tap-to-toggle**: tapping anywhere on the picture pauses it. While playing **no overlay is drawn**; the play button only appears once playback is paused or the video has reached the end.
+  * **Interactive Scrubber**: seek bar bound to the controller's position/duration. It sits above the tap target so dragging it seeks instead of toggling playback.
   * A spinner while decoding, and a raw, selectable error message if the file is missing or cannot be opened.
 * **Primary Save to Gallery Action**:
-  * Multi-state CTA: **Save to Gallery** ➔ **Saving…** ➔ **Saved to Gallery** (emerald) ➔ **Retry Save to Gallery** on failure.
+  * The button is **never removed or replaced** after use: the label stays "Save to Gallery" and the control remains tappable. On success it simply turns emerald with a check icon.
   * Saves with `Gal.putVideo(path, album: 'CineDub AI')`, so the file is published to the device's Movies collection (visible in a file manager / gallery app), not just inside the app sandbox.
+  * A snackbar plus a persistent confirmation line under the button report that the video was saved, and to which album.
   * Requests storage access first on Android 10 and below; failures surface the plugin's raw message in a selectable error panel rather than silently reporting success.
 * **Removed**: the hard-coded SRT subtitle overlay, the dialogue-segment QC list, the audio-track switcher, **Share Video** and **New Dub**.
 
@@ -196,7 +198,7 @@ lib/
 
 ## 🧪 Testing
 
-* `flutter test` runs the suite (78 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+* `flutter test` runs the suite (79 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
   * **Retry-policy tests** pin the budgets (3 Gemini retries, 5 TTS retries starting at 1s) and the Gemini error classifier, asserting a 429 is routed to key rotation rather than the transient-retry path.
   * **Key-rotation tests** cover parking the throttled key, promoting the next one as the sticky default, exhausting a single-key pool without looping, and cooldown expiry restoring the key.
   * **Stage-retry tests** verify a retried job resumes at the failing stage index rather than stage 1, and that `removeFailedTask` drops only the targeted job.
