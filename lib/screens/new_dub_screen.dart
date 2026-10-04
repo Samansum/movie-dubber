@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
@@ -25,72 +26,35 @@ class NewDubScreen extends StatefulWidget {
 
 class _NewDubScreenState extends State<NewDubScreen> {
   bool _isPlayingPreview = false;
+  bool _isLoadingVideo = false;
   bool _showAdvancedTuning = false;
 
-  // Video Selection State (null = Empty State)
-  int? _selectedVideoIndex;
-  String? _customVideoTitle;
-  String? _customDuration;
-  String? _customSpecs;
-  String? _customImagePath;
+  // Selected, on-device video metadata (null = Empty State).
+  VideoAsset? _videoAsset;
+  VideoPlayerController? _videoController;
 
-  final List<Map<String, String>> _sampleVideos = [
-    {
-      'title': 'Cyber_Action_Trailer_1080p.mp4',
-      'duration': '02:45',
-      'specs': '48.2 MB • H.264 / AAC • 1080p 60fps',
-      'image':
-          'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      'title': 'Angkor_Heritage_Doc_Clip.mp4',
-      'duration': '04:10',
-      'specs': '68.5 MB • ProRes / AAC • 4K 24fps',
-      'image':
-          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      'title': 'Tokyo_Neon_Night_Vlog.mp4',
-      'duration': '01:30',
-      'specs': '32.1 MB • H.265 / AAC • 1080p 30fps',
-      'image':
-          'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
-    },
-  ];
+  bool get _hasSelectedVideo => _videoAsset != null;
 
-  bool get _hasSelectedVideo =>
-      _selectedVideoIndex != null || _customVideoTitle != null;
-
-  String get _currentVideoTitle {
-    if (_customVideoTitle != null) return _customVideoTitle!;
-    if (_selectedVideoIndex != null) {
-      return _sampleVideos[_selectedVideoIndex!]['title']!;
-    }
-    return '';
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_handleAppStateChange);
   }
 
-  String get _currentDuration {
-    if (_customDuration != null) return _customDuration!;
-    if (_selectedVideoIndex != null) {
-      return _sampleVideos[_selectedVideoIndex!]['duration']!;
+  /// Pauses the inline preview when the user navigates away from this tab so
+  /// the clip's audio does not keep playing in the background.
+  void _handleAppStateChange() {
+    if (widget.state.currentTabIndex != 0 && _isPlayingPreview) {
+      _pauseVideoPreview();
     }
-    return '';
   }
 
-  String get _currentSpecs {
-    if (_customSpecs != null) return _customSpecs!;
-    if (_selectedVideoIndex != null) {
-      return _sampleVideos[_selectedVideoIndex!]['specs']!;
-    }
-    return '';
-  }
-
-  String get _currentImage {
-    if (_customImagePath != null) return _customImagePath!;
-    if (_selectedVideoIndex != null) {
-      return _sampleVideos[_selectedVideoIndex!]['image']!;
-    }
-    return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+  @override
+  void dispose() {
+    widget.state.removeListener(_handleAppStateChange);
+    _videoController?.removeListener(_onVideoControllerUpdate);
+    _videoController?.dispose();
+    super.dispose();
   }
 
   Future<void> _pickDeviceVideo() async {
@@ -100,21 +64,153 @@ class _NewDubScreenState extends State<NewDubScreen> {
         allowMultiple: false,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
-        setState(() {
-          _selectedVideoIndex = null;
-          _customVideoTitle = file.name;
-          _customDuration = '02:30';
-          _customSpecs = '$sizeMb MB • Device Gallery';
-          _customImagePath =
-              'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
-        });
+      if (result == null || result.files.isEmpty) return;
+
+      final path = result.files.first.path;
+      if (path == null || path.isEmpty) {
+        _showErrorSnack('Unable to read the selected video file.');
+        return;
       }
+
+      await _loadVideoAsset(path);
     } catch (e) {
       debugPrint('Error picking file: $e');
+      _showErrorSnack('Could not load the selected video file.');
     }
+  }
+
+  /// Inspects the picked file with the player and builds real [VideoAsset]
+  /// metadata (duration, resolution, size) before rendering it on the card.
+  Future<void> _loadVideoAsset(String path) async {
+    final previousController = _videoController;
+    _videoController = null;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingVideo = true;
+        _isPlayingPreview = false;
+      });
+    }
+
+    VideoPlayerController? controller;
+    try {
+      controller = VideoPlayerController.file(File(path));
+      await controller.initialize();
+      await controller.setLooping(false);
+      // Force the very first frame to be decoded so it renders on the card
+      // while the preview is paused.
+      await controller.seekTo(Duration.zero);
+
+      final size = controller.value.size;
+      final sizeBytes = await File(path).length();
+
+      final asset = VideoAsset(
+        filePath: path,
+        fileName: _fileNameFromPath(path),
+        duration: controller.value.duration,
+        width: size.width.round(),
+        height: size.height.round(),
+        sizeBytes: sizeBytes,
+      );
+
+      await previousController?.dispose();
+
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+
+      controller.addListener(_onVideoControllerUpdate);
+      setState(() {
+        _videoController = controller;
+        _videoAsset = asset;
+        _isLoadingVideo = false;
+        _isPlayingPreview = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading video: $e');
+      await controller?.dispose();
+      await previousController?.dispose();
+      if (mounted) {
+        setState(() => _isLoadingVideo = false);
+        _showErrorSnack('This video could not be loaded for preview.');
+      }
+    }
+  }
+
+  String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final segments = normalized.split('/');
+    return segments.isNotEmpty && segments.last.isNotEmpty
+        ? segments.last
+        : 'video';
+  }
+
+  /// Keeps the preview flag in sync with the real player state and restores
+  /// the overlay controls once playback finishes.
+  void _onVideoControllerUpdate() {
+    final controller = _videoController;
+    if (controller == null || !mounted) return;
+
+    final value = controller.value;
+
+    if (value.isCompleted && _isPlayingPreview) {
+      setState(() => _isPlayingPreview = false);
+      return;
+    }
+
+    if (value.isPlaying != _isPlayingPreview) {
+      setState(() => _isPlayingPreview = value.isPlaying);
+    }
+  }
+
+  Future<void> _startVideoPreview() async {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    if (controller.value.isCompleted) {
+      await controller.seekTo(Duration.zero);
+    }
+    await controller.play();
+    if (!mounted) return;
+    setState(() => _isPlayingPreview = true);
+  }
+
+  /// Tapping the video surface while it plays pauses it and reveals the
+  /// hidden overlay controls again.
+  Future<void> _pauseVideoPreview() async {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    }
+    if (!mounted) return;
+    setState(() => _isPlayingPreview = false);
+  }
+
+  void _showErrorSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppColors.secondary, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTypography.bodyMd.copyWith(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void _showVideoSelectorModal() {
@@ -181,80 +277,6 @@ class _NewDubScreenState extends State<NewDubScreen> {
                   _pickDeviceVideo();
                 },
               ),
-
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Expanded(child: Divider(color: AppColors.borderSubtle)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      'OR CHOOSE SAMPLE VIDEO',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const Expanded(child: Divider(color: AppColors.borderSubtle)),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              ...List.generate(_sampleVideos.length, (index) {
-                final vid = _sampleVideos[index];
-                final isSelected =
-                    _selectedVideoIndex == index && _customVideoTitle == null;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: isSelected
-                            ? AppColors.primaryContainer
-                            : AppColors.borderSubtle,
-                        width: isSelected ? 1.5 : 1,
-                      ),
-                    ),
-                    tileColor: isSelected
-                        ? AppColors.primaryContainer.withOpacity(0.12)
-                        : AppColors.surfaceContainer,
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        image: DecorationImage(
-                          image: NetworkImage(vid['image']!),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      vid['title']!,
-                      style: AppTypography.bodyMd
-                          .copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      '${vid['duration']} • ${vid['specs']}',
-                      style: AppTypography.bodySm,
-                    ),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_circle_rounded,
-                            color: AppColors.primary)
-                        : null,
-                    onTap: () {
-                      setState(() {
-                        _customVideoTitle = null;
-                        _selectedVideoIndex = index;
-                      });
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                );
-              }),
               const SizedBox(height: 12),
             ],
           ),
@@ -539,9 +561,9 @@ class _NewDubScreenState extends State<NewDubScreen> {
                   }
 
                   state.startNewDubbingJob(
-                    videoTitle: _currentVideoTitle,
-                    duration: _currentDuration,
-                    fileSpecs: _currentSpecs,
+                    videoTitle: _videoAsset!.fileName,
+                    duration: _videoAsset!.durationText,
+                    fileSpecs: _videoAsset!.fileSpecs,
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -553,7 +575,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Dubbing pipeline started for $_currentVideoTitle!',
+                              'Dubbing pipeline started for ${_videoAsset!.fileName}!',
                               style: AppTypography.bodyMd
                                   .copyWith(color: Colors.white),
                             ),
@@ -616,8 +638,44 @@ class _NewDubScreenState extends State<NewDubScreen> {
     );
   }
 
-  /// Builds the Video Viewport (Empty State OR Selected Video Viewport)
+  /// Builds the Video Viewport (Loading / Empty State / Selected Video)
   Widget _buildVideoViewport() {
+    if (_isLoadingVideo) {
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerHigh.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderSubtle, width: 1),
+        ),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Preparing video preview…',
+                  style: AppTypography.bodySm.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (!_hasSelectedVideo) {
       // Empty State Viewport Card
       return Container(
@@ -680,7 +738,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to browse device gallery or choose sample files',
+                      'Tap to pick a video file from your device storage',
                       style: AppTypography.bodySm.copyWith(
                         fontSize: 12,
                         color: AppColors.onSurfaceVariant,
@@ -697,6 +755,31 @@ class _NewDubScreenState extends State<NewDubScreen> {
     }
 
     // Selected Video Viewport Card with Replace Button
+    final asset = _videoAsset!;
+    final controller = _videoController;
+    final isReady = controller != null && controller.value.isInitialized;
+    final showOverlays = !_isPlayingPreview;
+
+    // Live video surface: renders the decoded first frame while the preview
+    // is paused and the actual frames while it is playing.
+    final Widget videoSurface = isReady
+        ? Center(
+            child: AspectRatio(
+              aspectRatio: controller.value.aspectRatio,
+              child: VideoPlayer(controller),
+            ),
+          )
+        : const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppColors.primary,
+              ),
+            ),
+          );
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -719,223 +802,227 @@ class _NewDubScreenState extends State<NewDubScreen> {
               aspectRatio: 16 / 9,
               child: Stack(
                 children: [
-                  // Background Video Still
+                  // Black backdrop + live video surface. Tapping the surface
+                  // while playing pauses playback and reveals the overlays.
+                  const Positioned.fill(
+                    child: ColoredBox(color: Colors.black),
+                  ),
                   Positioned.fill(
-                    child: Image.network(
-                      _currentImage,
-                      fit: BoxFit.cover,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _isPlayingPreview ? _pauseVideoPreview : null,
+                      child: videoSurface,
                     ),
                   ),
 
-                  // Gradient Scrim
-                  Positioned.fill(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0x990A0E16),
-                            Colors.transparent,
-                            Color(0xCC0A0E16),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+                  // The controls below are only built while the preview is
+                  // paused so that nothing overlays the video during playback.
+                  if (showOverlays && isReady) ...[
+                    // Gradient Scrim
+                    Positioned.fill(
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color(0x990A0E16),
+                              Colors.transparent,
+                              Color(0xCC0A0E16),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Top Badges Overlay
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    right: 12,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerLowest
-                                .withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                                color: AppColors.borderSubtle, width: 0.5),
+                    // Top Badges Overlay
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      right: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLowest
+                                  .withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                  color: AppColors.borderSubtle, width: 0.5),
+                            ),
+                            child: Text(
+                              asset.resolutionLabel,
+                              style:
+                                  AppTypography.codeMono.copyWith(fontSize: 11),
+                            ),
                           ),
-                          child: Text(
-                            '1080p • 60 FPS',
-                            style:
-                                AppTypography.codeMono.copyWith(fontSize: 11),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerLowest
-                                .withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                                color: AppColors.borderSubtle, width: 0.5),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.timer_outlined,
-                                color: AppColors.tertiary,
-                                size: 13,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _currentDuration,
-                                style: AppTypography.labelSm.copyWith(
-                                  color: AppColors.onSurface,
-                                  fontWeight: FontWeight.w600,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLowest
+                                  .withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                  color: AppColors.borderSubtle, width: 0.5),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.timer_outlined,
+                                  color: AppColors.tertiary,
+                                  size: 13,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  asset.durationText,
+                                  style: AppTypography.labelSm.copyWith(
+                                    color: AppColors.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
-                  // Center Play Button
-                  Center(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _isPlayingPreview = !_isPlayingPreview;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryContainer.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x807C3AED),
-                                blurRadius: 20,
-                                spreadRadius: 2,
+                    // Center Play Button (visible only while paused)
+                    Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _startVideoPreview,
+                          borderRadius: BorderRadius.circular(999),
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.primaryContainer.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x807C3AED),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 30,
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Icon(
-                              _isPlayingPreview
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 30,
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Bottom Meta & Replace Action
-                  Positioned(
-                    bottom: 12,
-                    left: 12,
-                    right: 12,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _currentVideoTitle,
-                                style: AppTypography.headlineSm.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  shadows: const [
-                                    Shadow(
-                                      color: Colors.black87,
-                                      blurRadius: 4,
+                    // Bottom Meta & Replace Action
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      right: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  asset.fileName,
+                                  style: AppTypography.headlineSm.copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Colors.black87,
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.album_outlined,
+                                      color: AppColors.onSurfaceVariant,
+                                      size: 13,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        asset.fileSpecs,
+                                        style: AppTypography.bodySm.copyWith(
+                                          fontSize: 11,
+                                          color: AppColors.onSurfaceVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.album_outlined,
-                                    color: AppColors.onSurfaceVariant,
-                                    size: 13,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      _currentSpecs,
-                                      style: AppTypography.bodySm.copyWith(
-                                        fontSize: 11,
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _showVideoSelectorModal,
-                            borderRadius: BorderRadius.circular(999),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppColors.surfaceBright.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: AppColors.borderSubtle,
-                                  width: 1,
+                          const SizedBox(width: 10),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _showVideoSelectorModal,
+                              borderRadius: BorderRadius.circular(999),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.swap_horiz_rounded,
-                                    color: AppColors.primary,
-                                    size: 16,
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.surfaceBright.withOpacity(0.85),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: AppColors.borderSubtle,
+                                    width: 1,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Replace',
-                                    style: AppTypography.labelSm.copyWith(
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.swap_horiz_rounded,
                                       color: AppColors.primary,
-                                      fontWeight: FontWeight.w700,
+                                      size: 16,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Replace',
+                                      style: AppTypography.labelSm.copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

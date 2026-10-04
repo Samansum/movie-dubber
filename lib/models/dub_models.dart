@@ -38,7 +38,8 @@ class VoiceProfile {
     badgeText: 'Auto-Cast',
     khmerSampleText: 'ស្វ័យប្រវត្តិកំណត់សំឡេងតួអង្គ',
     durationText: 'Auto',
-    description: 'Smart auto-detects male and female character voices automatically.',
+    description:
+        'Smart auto-detects male and female character voices automatically.',
   );
 
   static const VoiceProfile pisethNeural = VoiceProfile(
@@ -50,7 +51,8 @@ class VoiceProfile {
     badgeText: 'Ultra Low Latency',
     khmerSampleText: 'សូមស្វាគមន៍មកកាន់ អេអាយ សម្រាយរឿង។',
     durationText: '0:03',
-    description: 'Resonant, authoritative male narration for action & cinema trailers.',
+    description:
+        'Resonant, authoritative male narration for action & cinema trailers.',
   );
 
   static const VoiceProfile sreymomNeural = VoiceProfile(
@@ -62,7 +64,8 @@ class VoiceProfile {
     badgeText: 'Optimal for Dialogues',
     khmerSampleText: 'សូមស្វាគមន៍មកកាន់ អេអាយ សម្រាយរឿង។',
     durationText: '0:03',
-    description: 'Expressive and clear female voice ideal for documentaries & dialogues.',
+    description:
+        'Expressive and clear female voice ideal for documentaries & dialogues.',
   );
 
   static const List<VoiceProfile> allProfiles = [
@@ -70,6 +73,61 @@ class VoiceProfile {
     pisethNeural,
     sreymomNeural,
   ];
+}
+
+/// Real, on-device video metadata built after the user picks a source clip.
+/// All values are derived from the selected file once it has been inspected
+/// with the video player (no placeholder/sample data).
+class VideoAsset {
+  final String filePath;
+  final String fileName;
+  final Duration duration;
+  final int width;
+  final int height;
+  final int sizeBytes;
+
+  const VideoAsset({
+    required this.filePath,
+    required this.fileName,
+    required this.duration,
+    required this.width,
+    required this.height,
+    required this.sizeBytes,
+  });
+
+  double get sizeMb => sizeBytes / (1024 * 1024);
+
+  /// Uppercase container extension (e.g. "MP4"), or "VIDEO" when unknown.
+  String get fileExtension {
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) {
+      return 'VIDEO';
+    }
+    return fileName.substring(dotIndex + 1).toUpperCase();
+  }
+
+  /// Short-side resolution label, e.g. 1920x1080 -> "1080p", 3840x2160 -> "4K".
+  String get resolutionLabel {
+    final shortSide = width < height ? width : height;
+    if (shortSide <= 0) return 'Video';
+    if (shortSide >= 2160) return '4K';
+    if (shortSide >= 1440) return '2K';
+    return '${shortSide}p';
+  }
+
+  String get resolutionText =>
+      (width <= 0 || height <= 0) ? 'Unknown' : '$width × $height';
+
+  /// `mm:ss` formatted playback length.
+  String get durationText {
+    final totalSeconds = duration.inSeconds;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String get fileSpecs =>
+      '${sizeMb.toStringAsFixed(1)} MB • $fileExtension • $resolutionText';
 }
 
 enum StageStatus {

@@ -15,6 +15,7 @@ dependencies:
   path_provider: ^2.1.6
   shared_preferences: ^2.5.5
   edge_tts: ^0.1.0
+  video_player: ^2.11.1
 
 dev_dependencies:
   flutter_test:
