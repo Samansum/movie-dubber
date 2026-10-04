@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -64,11 +63,64 @@ class QueueScreen extends StatelessWidget {
     );
   }
 
+  /// Shown when the pipeline has no active, queued or completed jobs.
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.primaryContainer.withOpacity(0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.movie_filter_rounded,
+                color: AppColors.primary,
+                size: 26,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'No dubbing jobs yet',
+            style: AppTypography.headlineSm.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pick a video and a voice on the Dub screen, then tap '
+            '"Start AI Khmer Dubbing" to begin processing.',
+            textAlign: TextAlign.center,
+            style: AppTypography.bodySm.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = state.activeTask;
     final queued = state.queuedTasks;
     final completed = state.completedTasks;
+
+    final bool hasActive = active != null && active.isProcessing;
+    final bool hasAnything =
+        active != null || queued.isNotEmpty || completed.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -155,7 +207,7 @@ class QueueScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${active.isProcessing ? 1 : 0} Active',
+                      '${hasActive ? 1 : 0} Active',
                       style: AppTypography.labelSm.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,
@@ -227,7 +279,11 @@ class QueueScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // CARD 1: CURRENTLY PROCESSING VIDEO
+          // EMPTY STATE: shown only when the pipeline has no jobs at all
+          if (!hasAnything) _buildEmptyState(),
+
+          // CARD 1: CURRENTLY PROCESSING VIDEO (only while a job is running)
+          if (active != null)
           Container(
             decoration: BoxDecoration(
               color: AppColors.surfaceContainer,
@@ -441,10 +497,9 @@ class QueueScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
-
           // CARD 2: QUEUED VIDEOS
           if (queued.isNotEmpty) ...[
+            const SizedBox(height: 20),
             Text(
               'QUEUED VIDEOS',
               style: AppTypography.labelSm.copyWith(
@@ -511,7 +566,7 @@ class QueueScreen extends StatelessWidget {
                             border: Border.all(color: const Color(0x4DF59E0B)),
                           ),
                           child: Text(
-                            'QUEUED #1',
+                            'QUEUED #${queued.indexOf(item) + 1}',
                             style: AppTypography.labelSm.copyWith(
                               color: const Color(0xFFFDE68A),
                               fontWeight: FontWeight.w800,
@@ -554,10 +609,9 @@ class QueueScreen extends StatelessWidget {
             ),
           ],
 
-          const SizedBox(height: 10),
-
           // CARD 3: COMPLETED VIDEOS
           if (completed.isNotEmpty) ...[
+            const SizedBox(height: 20),
             Text(
               'RECENTLY COMPLETED',
               style: AppTypography.labelSm.copyWith(

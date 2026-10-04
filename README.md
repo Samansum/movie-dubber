@@ -36,17 +36,20 @@ A mobile Flutter application engineered from the Google Stitch design (**Khmer V
 * **Shimmer Gradient CTA**: **Start AI Khmer Dubbing** button initiates the pipeline and routes to the Queue monitor.
 
 ### 2. Dubbing Queue (Video Processing)
+* **Real Data Only**: the queue starts completely empty. Every job is created from the video and voice model the user actually selected on the New Dub screen — no sample/placeholder jobs.
+* **Enqueue Behaviour**: tapping **Start AI Khmer Dubbing** pushes the job onto the queue. If the pipeline is idle it starts processing right away, otherwise the job is appended to the bottom of the queue and runs once the earlier jobs finish (FIFO).
+* **Dummy Pipeline Clock**: each job runs through the 4 stages below with a 10s timeout per stage (40s total). When a job finishes, the next queued job is picked up automatically until the queue is empty.
 * **Header & Live Pulse**: Real-time sync indicator (`SYNC LIVE`) with count summary pills for Active, Queued, and Completed jobs.
-* **Active Processing Card**:
-  * Gradient progress bar with live percentage (`64%`).
+* **Active Processing Card** (only rendered while a job is running):
+  * Gradient progress bar with live percentage.
   * **4-Stage AI Pipeline Progression Flow**:
     1. *Extract audio*: Demuxed 48kHz WAV audio stream (Completed).
-    2. *Transcribe and translate*: Gemini 1.5 Khmer translation (In Progress, animated spinner).
+    2. *Transcribe and translate*: Gemini Khmer translation (In Progress, animated spinner).
     3. *Generate audio*: Edge-TTS Khmer synthesis (Next Up).
     4. *Build video*: Remux & Lip-sync (Pending).
   * **Live Console**: Streaming event log with terminal styling.
-  * **Terminate Process**: Action button with confirmation modal.
-* **Queued & Completed Cards**: Displays queued jobs and recently completed videos with one-tap access to the player.
+  * **Terminate Process**: Action button with confirmation modal; aborting the current render promotes the next queued job.
+* **Queued & Completed Cards**: **Queued Videos** and **Recently Completed** sections are hidden whenever they have no items, and an empty-state card is shown when there are no jobs at all.
 
 ### 3. Completed Dub (Player & Save to Gallery)
 * **Status & Telemetry Banner**: Rendering & sync complete banner with file specs (`1080p 60fps • 48kHz • 54.2 MB`).

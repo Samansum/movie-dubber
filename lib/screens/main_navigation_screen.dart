@@ -110,7 +110,7 @@ class MainNavigationScreen extends StatelessWidget {
                         icon: Icons.graphic_eq_rounded,
                         label: 'Queue',
                         isSelected: state.currentTabIndex == 1,
-                        hasBadge: state.activeTask.isProcessing,
+                        hasBadge: state.isPipelineBusy,
                         onTap: () => state.setTabIndex(1),
                       ),
                       _buildNavItem(
