@@ -3,6 +3,7 @@ import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import '../widgets/pipeline_error_card.dart';
 import '../widgets/pipeline_stage_tile.dart';
 
 class QueueScreen extends StatelessWidget {
@@ -184,10 +185,13 @@ class QueueScreen extends StatelessWidget {
     final active = state.activeTask;
     final queued = state.queuedTasks;
     final completed = state.completedTasks;
+    final failed = state.failedTasks;
 
     final bool hasActive = active != null && active.isProcessing;
-    final bool hasAnything =
-        active != null || queued.isNotEmpty || completed.isNotEmpty;
+    final bool hasAnything = active != null ||
+        queued.isNotEmpty ||
+        completed.isNotEmpty ||
+        failed.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -349,6 +353,38 @@ class QueueScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              if (failed.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.error.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${failed.length} Failed',
+                        style: AppTypography.labelSm.copyWith(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
 
@@ -581,7 +617,83 @@ class QueueScreen extends StatelessWidget {
               ),
             ),
 
-          // CARD 2: QUEUED VIDEOS
+          // CARD 2: FAILED JOBS — shown above the queue so a stopped pipeline is the
+          // first thing the user sees, with its raw error and a copy button.
+          if (failed.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'FAILED JOBS',
+              style: AppTypography.labelSm.copyWith(
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w700,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'These renders stopped on an error. Stages before the failure are '
+              'marked completed; everything after it did not run.',
+              style: AppTypography.bodySm.copyWith(fontSize: 11),
+            ),
+            const SizedBox(height: 10),
+            ...failed.map((item) {
+              final error = item.error!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.videocam_rounded,
+                          color: AppColors.onSurfaceVariant, size: 15),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          item.videoTitle,
+                          style: AppTypography.headlineSm.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withOpacity(0.14),
+                          borderRadius: BorderRadius.circular(999),
+                          border:
+                              Border.all(color: AppColors.error.withOpacity(0.45)),
+                        ),
+                        child: Text(
+                          'FAILED • STAGE ${error.stageIndex + 1}',
+                          style: AppTypography.labelSm.copyWith(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Stage-by-stage breakdown: what finished, what stopped.
+                  ...item.stages
+                      .map((stage) => PipelineStageTile(stage: stage)),
+
+                  const SizedBox(height: 4),
+
+                  // Raw error + copy button.
+                  PipelineErrorCard(task: item),
+                ],
+              );
+            }),
+          ],
+
+          // CARD 3: QUEUED VIDEOS
           if (queued.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
@@ -732,7 +844,7 @@ class QueueScreen extends StatelessWidget {
             ),
           ],
 
-          // CARD 3: COMPLETED VIDEOS
+          // CARD 4: COMPLETED VIDEOS
           if (completed.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(

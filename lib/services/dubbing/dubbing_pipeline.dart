@@ -52,6 +52,32 @@ class DubbingConfigurationException implements Exception {
   String toString() => message;
 }
 
+/// Raised when a pipeline stage fails.
+///
+/// Wraps whatever the underlying service threw so the orchestrator always knows
+/// *which* stage stopped the job, and keeps the raw error text intact for the
+/// copy-to-clipboard diagnostic shown to technical users.
+class DubbingStageException implements Exception {
+  /// Zero-based index of the stage that failed (0 = extract audio).
+  final int stageIndex;
+
+  /// The original exception, untouched.
+  final Object cause;
+
+  final StackTrace stackTrace;
+
+  const DubbingStageException({
+    required this.stageIndex,
+    required this.cause,
+    required this.stackTrace,
+  });
+
+  @override
+  String toString() =>
+      'Stage ${stageIndex + 1} (${DubbingStageCatalog.titleFor(stageIndex)}) '
+      'failed: $cause';
+}
+
 /// Runs the four dubbing stages for a single video.
 ///
 /// 1. Extract audio with FFmpeg.
@@ -127,7 +153,11 @@ class DubbingPipeline {
       fraction: 0.05,
       message: 'Extracting 48kHz audio track',
     ));
-    await _ffmpeg.extractAudio(videoPath, audioPath);
+
+    await _runStage(
+      stageIndex: 0,
+      body: () => _ffmpeg.extractAudio(videoPath, audioPath),
+    );
 
     // ---- Stage 2: Transcribe and translate -------------------------------
     onProgress?.call(DubbingProgress(
@@ -136,10 +166,13 @@ class DubbingPipeline {
       message: 'Transcribing and translating via $modelDisplayName',
     ));
 
-    final entries = await _gemini.transcribeAndTranslateToEntries(
-      audioPath: audioPath,
-      apiKey: apiKey,
-      modelDisplayName: modelDisplayName,
+    final entries = await _runStage(
+      stageIndex: 1,
+      body: () => _gemini.transcribeAndTranslateToEntries(
+        audioPath: audioPath,
+        apiKey: apiKey,
+        modelDisplayName: modelDisplayName,
+      ),
     );
 
     // Persist the cleaned SRT so it can be inspected and reused.
@@ -153,21 +186,24 @@ class DubbingPipeline {
     ));
 
     // ---- Stage 3: Generate audio -----------------------------------------
-    final segments = await _tts.synthesizeSegments(
-      entries: entries,
-      selectedVoice: voice,
-      outputDir: segmentsDir,
-      durationProbe: _ffmpeg.probeDuration,
-      pitchHz: pitchHz,
-      speedMultiplier: speedMultiplier,
-      onProgress: (completed, total) {
-        // Stage 3 owns the 0.5 – 0.85 slice of the overall bar.
-        onProgress?.call(DubbingProgress(
-          stageIndex: 2,
-          fraction: 0.5 + 0.35 * (completed / total),
-          message: 'Synthesized $completed/$total lines with Edge TTS',
-        ));
-      },
+    final segments = await _runStage(
+      stageIndex: 2,
+      body: () => _tts.synthesizeSegments(
+        entries: entries,
+        selectedVoice: voice,
+        outputDir: segmentsDir,
+        durationProbe: _ffmpeg.probeDuration,
+        pitchHz: pitchHz,
+        speedMultiplier: speedMultiplier,
+        onProgress: (completed, total) {
+          // Stage 3 owns the 0.5 – 0.85 slice of the overall bar.
+          onProgress?.call(DubbingProgress(
+            stageIndex: 2,
+            fraction: 0.5 + 0.35 * (completed / total),
+            message: 'Synthesized $completed/$total lines with Edge TTS',
+          ));
+        },
+      ),
     );
 
     // ---- Stage 4: Build video --------------------------------------------
@@ -177,12 +213,15 @@ class DubbingPipeline {
       message: 'Remuxing dubbed audio onto the source timeline',
     ));
 
-    await _ffmpeg.mixAndDubVideo(
-      originalVideoPath: videoPath,
-      segments: segments,
-      outputVideoPath: outputPath,
-      keepBackgroundAudio: true,
-      duckingGainDb: duckingPercent,
+    await _runStage(
+      stageIndex: 3,
+      body: () => _ffmpeg.mixAndDubVideo(
+        originalVideoPath: videoPath,
+        segments: segments,
+        outputVideoPath: outputPath,
+        keepBackgroundAudio: true,
+        duckingGainDb: duckingPercent,
+      ),
     );
 
     onProgress?.call(const DubbingProgress(
@@ -196,6 +235,30 @@ class DubbingPipeline {
       srtContent: srtContent,
       entries: entries,
     );
+  }
+
+  /// Runs one stage and tags any failure with its stage index.
+  ///
+  /// Cancellation is rethrown untouched so [FfmpegCancelledException] still
+  /// reaches the orchestrator's cancellation handler instead of being reported
+  /// as a pipeline error.
+  Future<T> _runStage<T>({
+    required int stageIndex,
+    required Future<T> Function() body,
+  }) async {
+    try {
+      return await body();
+    } on FfmpegCancelledException {
+      rethrow;
+    } on DubbingStageException {
+      rethrow;
+    } catch (error, stackTrace) {
+      throw DubbingStageException(
+        stageIndex: stageIndex,
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// Rebuilds a canonical SRT document from parsed cues, dropping the `[M]`/`[F]`

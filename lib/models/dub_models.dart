@@ -130,6 +130,104 @@ class VideoAsset {
       '${sizeMb.toStringAsFixed(1)} MB • $fileExtension • $resolutionText';
 }
 
+/// Canonical definition of the four dubbing stages.
+///
+/// Titles/icons live here so the orchestrator and the queue UI can never drift
+/// apart on what "stage 2" is called.
+class DubbingStageCatalog {
+  DubbingStageCatalog._();
+
+  static const int stageCount = 4;
+
+  static const List<String> titles = [
+    '1. Extract audio',
+    '2. Transcribe and translate',
+    '3. Generate audio',
+    '4. Build video',
+  ];
+
+  /// Raw, unfiltered diagnostic captured when a stage throws.
+  ///
+  /// [message] is the short line shown to the user; [details] keeps the
+  /// original exception text, FFmpeg command/log and Dart stack trace so a
+  /// technical user can copy it verbatim into a bug report.
+  static DubbingError errorForStage(
+    int stageIndex, {
+    required Object cause,
+    StackTrace? stackTrace,
+    String? message,
+    String? details,
+  }) {
+    return DubbingError(
+      stageIndex: stageIndex,
+      stageTitle: titleFor(stageIndex),
+      message: message ?? cause.toString(),
+      details: details ?? cause.toString(),
+      errorType: cause.runtimeType.toString(),
+      stackTrace: stackTrace?.toString() ?? '',
+      occurredAt: DateTime.now(),
+    );
+  }
+
+  static String titleFor(int stageIndex) {
+    if (stageIndex < 0 || stageIndex >= titles.length) {
+      return 'Stage ${stageIndex + 1}';
+    }
+    return titles[stageIndex];
+  }
+}
+
+/// A recorded pipeline failure, preserved verbatim for support/debugging.
+class DubbingError {
+  /// Zero-based index of the stage that failed.
+  final int stageIndex;
+  final String stageTitle;
+
+  /// Short, human-readable summary rendered on the failure card.
+  final String message;
+
+  /// Full raw text: exception body, FFmpeg command + logs, stack trace.
+  final String details;
+
+  /// Runtime type of the thrown object, e.g. `FfmpegException`.
+  final String errorType;
+  final String stackTrace;
+  final DateTime occurredAt;
+
+  const DubbingError({
+    required this.stageIndex,
+    required this.stageTitle,
+    required this.message,
+    required this.details,
+    required this.errorType,
+    required this.stackTrace,
+    required this.occurredAt,
+  });
+
+  /// Monospaced technical report — this is what the copy button yields.
+  String reportFor(String videoTitle) {
+    final buffer = StringBuffer()
+      ..writeln('CineDub AI — Dubbing pipeline error report')
+      ..writeln('Job:      $videoTitle')
+      ..writeln('Stage:    $stageTitle (index $stageIndex)')
+      ..writeln('Error:    $errorType')
+      ..writeln('Time:     ${occurredAt.toIso8601String()}')
+      ..writeln('')
+      ..writeln('--- Summary ---')
+      ..writeln(message)
+      ..writeln('')
+      ..writeln('--- Raw details ---')
+      ..writeln(details);
+    if (stackTrace.isNotEmpty) {
+      buffer
+        ..writeln('')
+        ..writeln('--- Stack trace ---')
+        ..writeln(stackTrace);
+    }
+    return buffer.toString().trimRight();
+  }
+}
+
 enum StageStatus {
   completed,
   inProgress,
@@ -191,6 +289,10 @@ class DubbingTask {
   final List<PipelineStage> stages;
   final String liveStatusLog;
 
+  /// Raw diagnostic captured when the pipeline stopped on an error.
+  /// `null` while the job is healthy (queued, running or completed).
+  final DubbingError? error;
+
   const DubbingTask({
     required this.id,
     required this.videoTitle,
@@ -205,7 +307,19 @@ class DubbingTask {
     required this.isCompleted,
     required this.stages,
     required this.liveStatusLog,
+    this.error,
   });
+
+  /// Whether this job stopped on an error. Used by the queue UI to keep failed
+  /// renders out of the "Recently completed" list.
+  bool get hasFailed => error != null;
+
+  /// Zero-based index of the stage that failed, or `null` when there was no
+  /// error.
+  int? get failedStageIndex => error?.stageIndex;
+
+  /// The full technical report a technical user copies to the clipboard.
+  String get errorReport => error?.reportFor(videoTitle) ?? '';
 
   DubbingTask copyWith({
     double? progress,
@@ -215,6 +329,7 @@ class DubbingTask {
     List<PipelineStage>? stages,
     String? liveStatusLog,
     String? outputPath,
+    DubbingError? error,
   }) {
     return DubbingTask(
       id: id,
@@ -230,6 +345,7 @@ class DubbingTask {
       isCompleted: isCompleted ?? this.isCompleted,
       stages: stages ?? this.stages,
       liveStatusLog: liveStatusLog ?? this.liveStatusLog,
+      error: error ?? this.error,
     );
   }
 }

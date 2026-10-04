@@ -6,6 +6,7 @@ import 'package:khmer_dubber_mobile/models/dub_models.dart';
 import 'package:khmer_dubber_mobile/services/app_state.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/dubbing_pipeline.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/ffmpeg_dubbing_service.dart';
+import 'package:khmer_dubber_mobile/services/dubbing/gemini_translation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Stands in for the real pipeline so queue mechanics can be tested without
@@ -54,6 +55,54 @@ class FakePipeline extends DubbingPipeline {
   @override
   Future<void> cancel() async {
     wasCancelled = true;
+    if (gate != null && !gate!.isCompleted) gate!.complete();
+  }
+}
+
+/// A pipeline that walks the stages it is given, then fails on [failAtStage]
+/// with a [DubbingStageException] — mirroring a real service blowing up
+/// mid-pipeline.
+class FailingPipeline extends DubbingPipeline {
+  FailingPipeline(this.failAtStage, this.error);
+
+  /// Zero-based index of the stage that should throw.
+  final int failAtStage;
+  final Object error;
+
+  Completer<void>? gate;
+
+  @override
+  Future<DubbingResult> run({
+    required String videoPath,
+    required String workDir,
+    required VoiceProfile voice,
+    required String apiKey,
+    required String modelDisplayName,
+    double pitchHz = 0.0,
+    double speedMultiplier = 1.0,
+    double duckingPercent = -25.0,
+    void Function(DubbingProgress progress)? onProgress,
+  }) async {
+    // Report progress for every stage up to and including the failing one.
+    for (var stage = 0; stage <= failAtStage; stage++) {
+      onProgress?.call(DubbingProgress(
+        stageIndex: stage,
+        fraction: 0.2 * stage,
+        message: 'stage $stage',
+      ));
+    }
+
+    await (gate?.future ?? Future<void>.value());
+
+    throw DubbingStageException(
+      stageIndex: failAtStage,
+      cause: error,
+      stackTrace: StackTrace.current,
+    );
+  }
+
+  @override
+  Future<void> cancel() async {
     if (gate != null && !gate!.isCompleted) gate!.complete();
   }
 }
@@ -272,8 +321,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(state.activeTask, isNull);
-    expect(state.completedTasks.length, 1);
-    expect(state.completedTasks.first.liveStatusLog, contains('Failed'));
+    // A crashed render must NOT be reported as a completed one.
+    expect(state.completedTasks, isEmpty);
+    expect(state.failedTasks.length, 1);
+    expect(state.failedTasks.first.liveStatusLog, contains('Stopped at'));
+    expect(state.failedTasks.first.hasFailed, isTrue);
+    expect(state.failedTasks.first.isCompleted, isFalse);
     expect(state.isPipelineBusy, isFalse);
 
     state.dispose();
@@ -291,8 +344,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(state.activeTask, isNull);
+    expect(state.completedTasks, isEmpty);
+    expect(state.failedTasks.length, 1);
     expect(
-      state.completedTasks.first.liveStatusLog,
+      state.failedTasks.first.error!.message,
       contains('Gemini API key'),
     );
     expect(state.isPipelineBusy, isFalse);
@@ -468,6 +523,177 @@ void main() {
       expect(state.apiKeys.length, 2);
       expect(state.usableApiKeys.length, 1);
       expect(state.usableApiKeys.single.alias, 'Good');
+
+      state.dispose();
+    });
+  });
+group('Pipeline stage error tracking', () {
+    /// Builds a state whose pipeline fails on [failAtStage].
+    AppState buildFailingState(int failAtStage, Object error) {
+      final state = AppState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      state.pipelineFactory = () => FailingPipeline(failAtStage, error);
+      return state;
+    }
+
+    testWidgets('a stage failure never appears as a completed render',
+        (tester) async {
+      final state = buildFailingState(
+        1,
+        const GeminiTranslationException('API key not valid'),
+      );
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+
+      expect(state.completedTasks, isEmpty,
+          reason: 'a failed job must not be reported as done');
+      expect(state.failedTasks.length, 1);
+      expect(state.failedTasks.first.videoTitle, 'alpha.mp4');
+      expect(state.activeTask, isNull);
+      expect(state.isPipelineBusy, isFalse);
+
+      state.dispose();
+    });
+
+    testWidgets('the failing stage is marked failed and later stages stay pending',
+        (tester) async {
+      final state = buildFailingState(
+        1,
+        const GeminiTranslationException('quota exceeded'),
+      );
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+
+      final failed = state.failedTasks.first;
+      expect(failed.failedStageIndex, 1);
+
+      // Stage 1 completed before the failure.
+      expect(failed.stages[0].status, StageStatus.completed);
+      // Stage 2 is the one that threw.
+      expect(failed.stages[1].status, StageStatus.failed);
+      expect(failed.stages[1].badgeText, 'Failed');
+      // Nothing after it ran.
+      expect(failed.stages[2].status, StageStatus.pending);
+      expect(failed.stages[3].status, StageStatus.pending);
+
+      // No stage is left spinning once the pipeline stopped.
+      expect(
+        failed.stages.where((s) => s.status == StageStatus.inProgress),
+        isEmpty,
+      );
+
+      state.dispose();
+    });
+
+    testWidgets('each stage index maps to the right failing stage',
+        (tester) async {
+      for (var stage = 0; stage < 4; stage++) {
+        final state = buildFailingState(
+          stage,
+          const GeminiTranslationException('boom'),
+        );
+        await tester.pump();
+
+        enqueue(state, 'job$stage');
+        await tester.pumpAndSettle();
+
+        final failed = state.failedTasks.first;
+        expect(failed.failedStageIndex, stage);
+        expect(failed.stages[stage].status, StageStatus.failed);
+
+        // Everything before the failure finished successfully.
+        for (var i = 0; i < stage; i++) {
+          expect(failed.stages[i].status, StageStatus.completed);
+        }
+        // Everything after it never ran.
+        for (var i = stage + 1; i < 4; i++) {
+          expect(failed.stages[i].status, StageStatus.pending);
+        }
+
+        state.dispose();
+      }
+    });
+
+    testWidgets('the raw error message is preserved verbatim for copying',
+        (tester) async {
+      const rawLog =
+          'Conversion failed!\nInvalid data found when processing input';
+      final state = buildFailingState(
+        3,
+        const FfmpegException('-i in.mp4 -c:v copy out.mp4', rawLog),
+      );
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+
+      final error = state.failedTasks.first.error!;
+      // The FFmpeg command and the raw log both survive for the technical user.
+      expect(error.details, contains('-i in.mp4 -c:v copy out.mp4'));
+      expect(error.details, contains('Conversion failed!'));
+      expect(error.details, contains('Invalid data found'));
+      expect(error.errorType, 'FfmpegException');
+
+      // The copyable report bundles it all together.
+      final report = state.failedTasks.first.errorReport;
+      expect(report, contains('alpha.mp4'));
+      expect(report, contains('4. Build video'));
+      expect(report, contains('Raw details'));
+      expect(report, contains(rawLog));
+
+      state.dispose();
+    });
+
+    testWidgets('a failed job still promotes the next queued job',
+        (tester) async {
+      final state = AppState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+
+      var calls = 0;
+      state.pipelineFactory = () {
+        calls++;
+        // The first job fails; the second runs clean.
+        if (calls == 1) {
+          return FailingPipeline(2, Exception('tts blew up'));
+        }
+        return FakePipeline([0, 1, 2, 3]);
+      };
+      await tester.pump();
+
+      enqueue(state, 'first');
+      enqueue(state, 'second');
+      await tester.pumpAndSettle();
+
+      expect(state.failedTasks.single.videoTitle, 'first.mp4');
+      expect(state.completedTasks.single.videoTitle, 'second.mp4');
+      expect(state.queuedTasks, isEmpty);
+      expect(state.isPipelineBusy, isFalse);
+
+      state.dispose();
+    });
+
+    testWidgets('stage 4 success marks every stage completed', (tester) async {
+      final created = <FakePipeline>[];
+      final state = buildState(created, steps: [0, 1, 2, 3]);
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+
+      final done = state.completedTasks.first;
+      expect(done.hasFailed, isFalse);
+      expect(done.error, isNull);
+      expect(done.errorReport, isEmpty);
+      expect(
+        done.stages.every((s) => s.status == StageStatus.completed),
+        isTrue,
+      );
 
       state.dispose();
     });

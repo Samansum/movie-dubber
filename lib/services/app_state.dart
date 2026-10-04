@@ -86,14 +86,9 @@ class AppState extends ChangeNotifier {
   // Tasks Management
   // The four real pipeline stages. Their duration is now driven by the actual
   // work (FFmpeg / Gemini / Edge TTS) rather than a fixed dummy clock.
-  static const int _pipelineStageCount = 4;
+  static const int _pipelineStageCount = DubbingStageCatalog.stageCount;
 
-  static const List<String> _stageTitles = [
-    '1. Extract audio',
-    '2. Transcribe and translate',
-    '3. Generate audio',
-    '4. Build video',
-  ];
+  static const List<String> _stageTitles = DubbingStageCatalog.titles;
 
   static const List<IconData> _stageIcons = [
     Icons.audiotrack_rounded,
@@ -127,6 +122,11 @@ class AppState extends ChangeNotifier {
 
   final List<DubbingTask> _completedTasks = [];
   List<DubbingTask> get completedTasks => List.unmodifiable(_completedTasks);
+
+  /// Jobs that stopped on an error. Kept apart from [_completedTasks] so a
+  /// crashed render is never presented as a successful one.
+  final List<DubbingTask> _failedTasks = [];
+  List<DubbingTask> get failedTasks => List.unmodifiable(_failedTasks);
 
   // Player State
   bool _isPlayingVideo = false;
@@ -230,13 +230,28 @@ class AppState extends ChangeNotifier {
   /// [activeStageIndex] is the one currently running, everything before it is
   /// completed and everything after it is pending/next-up. Pass -1 to leave all
   /// stages pending (queued task) or [_pipelineStageCount] to mark all completed.
+  ///
+  /// When [failedStageIndex] is given, that stage is marked
+  /// [StageStatus.failed] and every stage after it falls back to
+  /// [StageStatus.pending] — the pipeline stopped, so nothing after it ran.
   List<PipelineStage> _buildStages({
     required VoiceProfile voice,
     required int activeStageIndex,
+    int? failedStageIndex,
   }) {
     return List.generate(_pipelineStageCount, (index) {
       final StageStatus status;
-      if (index < activeStageIndex) {
+      if (failedStageIndex != null) {
+        // The pipeline stopped: everything before the failure finished,
+        // everything after it never ran.
+        if (index < failedStageIndex) {
+          status = StageStatus.completed;
+        } else if (index == failedStageIndex) {
+          status = StageStatus.failed;
+        } else {
+          status = StageStatus.pending;
+        }
+      } else if (index < activeStageIndex) {
         status = StageStatus.completed;
       } else if (index == activeStageIndex) {
         status = StageStatus.inProgress;
@@ -248,8 +263,11 @@ class AppState extends ChangeNotifier {
 
       final bool isDone = status == StageStatus.completed;
       final bool isRunning = status == StageStatus.inProgress;
+      final bool isFailed = status == StageStatus.failed;
       final String badgeText;
-      if (isDone) {
+      if (isFailed) {
+        badgeText = 'Failed';
+      } else if (isDone) {
         badgeText = 'Completed';
       } else if (isRunning) {
         badgeText = 'In Progress';
@@ -262,12 +280,31 @@ class AppState extends ChangeNotifier {
       return PipelineStage(
         stageNumber: index + 1,
         title: _stageTitles[index],
-        description: _stageDescription(index, status, voice),
+        description:
+            isFailed ? _failedStageDescription(index) : _stageDescription(index, status, voice),
         status: status,
         badgeText: badgeText,
-        icon: isDone ? Icons.check_circle_rounded : _stageIcons[index],
+        icon: switch (status) {
+          StageStatus.completed => Icons.check_circle_rounded,
+          StageStatus.failed => Icons.error_rounded,
+          _ => _stageIcons[index],
+        },
       );
     });
+  }
+
+  /// Description shown on the stage that stopped the pipeline.
+  String _failedStageDescription(int index) {
+    switch (index) {
+      case 0:
+        return 'Audio extraction failed';
+      case 1:
+        return 'Transcription / translation failed';
+      case 2:
+        return 'Speech synthesis failed';
+      default:
+        return 'Video render failed';
+    }
   }
 
   /// Human readable description for a pipeline stage in a given [status].
@@ -411,6 +448,10 @@ class AppState extends ChangeNotifier {
   /// Guards against two pipeline runs overlapping (terminate racing completion).
   bool _isRunningPipeline = false;
 
+  /// Stage index reported by the most recent [DubbingProgress] of the running
+  /// job. Used to attribute errors that carry no explicit stage index.
+  int _lastStageIndex = 0;
+
   DubbingPipeline _createPipeline() =>
       pipelineFactory?.call() ?? DubbingPipeline();
 
@@ -435,16 +476,31 @@ class AppState extends ChangeNotifier {
     if (videoPath == null || videoPath.isEmpty) {
       _failActiveTask(
         task,
-        'No source file on disk — re-pick the video and try again.',
+        DubbingStageCatalog.errorForStage(
+          0,
+          cause: const DubbingConfigurationException(
+            'No source file on disk — re-pick the video and try again.',
+          ),
+          message: 'No source file on disk — re-pick the video and try again.',
+          details: 'task.videoPath was null or empty',
+        ),
       );
       return;
     }
 
     final key = nextApiKey();
     if (key == null) {
+      const reason = 'No Gemini API key available. '
+          'Add one in the Settings tab first.';
       _failActiveTask(
         task,
-        'No Gemini API key available. Add one in the Settings tab first.',
+        DubbingStageCatalog.errorForStage(
+          1,
+          cause: const DubbingConfigurationException(reason),
+          message: reason,
+          details: 'AppState.nextApiKey() returned null — the key pool has no '
+              'usable key (empty token or Cooldown status).',
+        ),
       );
       return;
     }
@@ -453,6 +509,8 @@ class AppState extends ChangeNotifier {
     final pipeline = _createPipeline();
     _activePipeline = pipeline;
     _isRunningPipeline = true;
+    // Fresh job => fresh stage attribution.
+    _lastStageIndex = 0;
 
     // Snapshot tuning + model so mid-job changes cannot corrupt a running job.
     final voice = task.voiceProfile;
@@ -503,10 +561,10 @@ class AppState extends ChangeNotifier {
       // Terminated from the Queue screen; there is nothing to record.
       _releasePipelineSlot();
       return;
-    } catch (e) {
+    } catch (e, stackTrace) {
       _releasePipelineSlot();
       if (pipeline.isCancelled) return;
-      _failActiveTask(task, _describeError(e));
+      _failActiveTask(task, _describeError(e, stackTrace));
     }
   }
 
@@ -522,6 +580,10 @@ class AppState extends ChangeNotifier {
     if (task == null) return;
 
     final stageIndex = progress.stageIndex.clamp(0, _pipelineStageCount - 1);
+    // Remember the stage currently executing so an error that arrives without
+    // stage information can still be attributed to the right step.
+    _lastStageIndex = stageIndex;
+
     _activeTask = task.copyWith(
       progress: progress.fraction.clamp(0.0, 1.0),
       stages: _buildStages(
@@ -533,31 +595,97 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Marks the running job as failed, surfaces the reason and promotes the next
-  /// queued job so the pipeline never deadlocks.
-  void _failActiveTask(DubbingTask task, String reason) {
-    _completedTasks.insert(
-      0,
-      task.copyWith(
-        isProcessing: false,
-        progress: 0.0,
-        liveStatusLog: 'Failed • $reason',
+  /// Marks the running job as failed, records the raw diagnostic and promotes the
+  /// next queued job so the pipeline never deadlocks.
+  ///
+  /// The job is moved to [_failedTasks] — never into [_completedTasks] — so a
+  /// crashed render is not reported as "Done". The stage list is rebuilt from
+  /// the *live* task so the stage that threw keeps its completed predecessors
+  /// and is marked [StageStatus.failed], while every later stage drops back to
+  /// pending.
+  void _failActiveTask(DubbingTask task, DubbingError error) {
+    // Use the live task when it is the same job, otherwise fall back to the
+    // snapshot we were handed.
+    final current = _activeTask?.id == task.id ? _activeTask! : task;
+    final voice = current.voiceProfile;
+
+    final failed = current.copyWith(
+      isProcessing: false,
+      isQueued: false,
+      isCompleted: false,
+      progress: current.progress.clamp(0.0, 1.0),
+      stages: _buildStages(
+        voice: voice,
+        // The failed stage replaces whatever was running, so no stage is left
+        // spinning once the pipeline has stopped.
+        activeStageIndex: -1,
+        failedStageIndex: error.stageIndex,
       ),
+      liveStatusLog: 'Stopped at ${error.stageTitle} • ${error.message}',
+      error: error,
     );
+
+    _failedTasks.insert(0, failed);
 
     _activeTask = null;
     _startNextQueuedTask();
     notifyListeners();
   }
 
-  String _describeError(Object error) {
+  /// Turns any thrown object into a [DubbingError] attributed to a stage.
+  ///
+  /// [DubbingStageException] already carries the stage index; anything else is
+  /// attributed to the last stage that reported progress, which is the best
+  /// available signal for an unattributed failure.
+  DubbingError _describeError(Object error, [StackTrace? stackTrace]) {
+    if (error is DubbingStageException) {
+      return DubbingStageCatalog.errorForStage(
+        error.stageIndex,
+        cause: error.cause,
+        stackTrace: error.stackTrace,
+        message: _shortMessage(error.cause),
+        details: _rawDetails(error.cause),
+      );
+    }
+
+    return DubbingStageCatalog.errorForStage(
+      _lastReportedStageIndex,
+      cause: error,
+      stackTrace: stackTrace,
+      message: _shortMessage(error),
+      details: _rawDetails(error),
+    );
+  }
+
+  /// Index of the most recent stage that reported progress, used to attribute
+  /// errors that arrive without explicit stage information.
+  int get _lastReportedStageIndex =>
+      _activeTask == null ? 0 : _lastStageIndex.clamp(0, _pipelineStageCount - 1);
+
+  /// Best-effort one-line summary shown on the failure card.
+  String _shortMessage(Object error) {
     if (error is DubbingConfigurationException) return error.message;
     if (error is GeminiTranslationException) return error.message;
     if (error is FfmpegException) {
       final logs = error.logs;
-      final tail = logs == null || logs.isEmpty ? '' : ' (${logs.trim()})';
-      return 'FFmpeg error$tail';
+      final tail = (logs == null || logs.isEmpty) ? '' : ': ${logs.trim()}';
+      return 'FFmpeg command failed$tail';
     }
+    return error.toString();
+  }
+
+  /// Full, unfiltered error body — this is what the copy button exposes.
+  String _rawDetails(Object error) {
+    if (error is DubbingConfigurationException) return error.message;
+    if (error is GeminiTranslationException) return error.message;
+
+    if (error is FfmpegException) {
+      // Keep the command *and* the raw log: the command identifies which of
+      // the stages' FFmpeg invocations broke, the log says why.
+      final logs = error.logs ?? '(no log output captured)';
+      return 'Command:\n${error.command}\n\nFFmpeg log:\n$logs';
+    }
+
     return error.toString();
   }
 

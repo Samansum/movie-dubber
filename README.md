@@ -20,8 +20,26 @@ The dubbing engine is composed of three external services and one media toolchai
 Supporting pieces:
 * **Prompt** — `prompts/khmer_dubbing_prompt.dart` holds the Gemini system instruction (transcription, `[M]`/`[F]` speaker-gender tagging, and spoken-Khmer translation rules). Kept in its own file so it can be tuned without touching code.
 * **SRT cleaner** — `services/dubbing/srt_parser.dart` is a Dart port of the Python helpers: it strips invisible unicode, normalizes/repairs timestamps (pysrt-style), collapses blank lines, removes markdown fences, and parses cues into `SrtEntry` models.
-* **Orchestrator** — `services/dubbing/dubbing_pipeline.dart` runs the four stages, streams progress via `DubbingProgress`, supports cancellation, and writes intermediates (audio, `.srt`, per-line MP3s, final MP4) to a per-job folder.
+* **Orchestrator** — `services/dubbing/dubbing_pipeline.dart` runs the four stages, streams progress via `DubbingProgress`, supports cancellation, and writes intermediates (audio, `.srt`, per-line MP3s, final MP4) to a per-job folder. Each stage runs through `_runStage`, which tags any failure with its stage index (`DubbingStageException`) so the error can always be attributed to a specific step.
 * **Gender-aware casting** — the `[M]`/`[F]` tag Gemini emits drives voice selection in **Auto-Cast** mode (Piseth ↔ Sreymom). Picking a single voice explicitly overrides it.
+
+### Stage tracking & failure reporting
+
+A job is tracked stage-by-stage and **stops at the first stage that throws**:
+
+| Stage | Zero-based index | Failure attribution |
+|---|---|---|
+| Extract audio | 0 | `FfmpegException` (command + raw log) |
+| Transcribe and translate | 1 | `GeminiTranslationException` |
+| Generate audio | 2 | `Edge TTS` / `FileSystemException` |
+| Build video | 3 | `FfmpegException` (command + raw log) |
+
+* **Never reported as done** — a failed job is stored in `AppState.failedTasks`, kept separate from `completedTasks`, so the Queue screen's "Recently completed" list (and its "Done" pill) only ever contains successful renders. Failed jobs get their own **Failed Jobs** section.
+* **Correct stage states** — stages before the failure are `completed`, the failing stage is `failed`, and every later stage drops back to `pending`. No stage is left spinning after the pipeline stops.
+* **Raw error preserved** — `DubbingError` keeps the untruncated detail (for FFmpeg: both the failing command *and* the raw log) plus the Dart stack trace. `DubbingTask.errorReport` renders it as a monospaced technical report.
+* **Copy to clipboard** — `widgets/pipeline_error_card.dart` shows the raw message in a scrollable, selectable panel and offers a **Copy error report** button (`Clipboard.setData`) for technical users.
+
+> Pre-flight failures (missing source file, no usable Gemini key) are attributed to the stage that would have run and carry a `details` string explaining the check that failed.
 
 ### Key runtime dependencies
 
@@ -141,14 +159,17 @@ lib/
 │       └── tts_segment_service.dart    # Per-cue TTS + gender-based voice routing
 ├── theme/                        # Colors, typography, theme
 └── widgets/                      # Shared UI widgets
+    ├── pipeline_stage_tile.dart  # One stage row (completed/running/failed/pending)
+    └── pipeline_error_card.dart  # Raw error report + copy-to-clipboard button
 ```
 
 ---
 
 ## 🧪 Testing
 
-* `flutter test` runs the suite (52 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+* `flutter test` runs the suite (58 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
   * **Queue tests** drive the real `AppState` pipeline orchestration through an injectable fake pipeline (FIFO promotion, terminate/cancel, remove-from-queue, renumbering, fast-fail on missing source file / API key, key-pool rotation).
+  * **Stage error-tracking tests** assert the failure contract: a failed stage is never recorded as a completed render, the failing stage is marked `failed` while earlier stages are `completed` and later ones `pending`, each of the four stage indices maps to the right failing step, the raw FFmpeg command + log survive verbatim into the copyable report, and a failed job still promotes the next queued job.
   * **SRT / parser tests** cover timestamp normalization, blank-line collapsing, invisible-character removal, `[M]`/`[F]` gender parsing, Gemini model-id mapping, voice routing, and `atempo` speed math — no network required.
 * The bundled `widget_test.dart` smoke test loads Unsplash images that the Flutter test binding blocks (HTTP 400), so it fails independently of the pipeline; it can be removed or given mocked network images.
 

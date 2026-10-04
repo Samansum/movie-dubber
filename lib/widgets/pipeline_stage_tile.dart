@@ -77,6 +77,36 @@ class PipelineStageTile extends StatelessWidget {
         );
         break;
 
+      case StageStatus.failed:
+        containerColor = AppColors.errorContainer.withOpacity(0.12);
+        borderColor = AppColors.error.withOpacity(0.45);
+        iconColor = AppColors.error;
+        iconBgColor = AppColors.errorContainer.withOpacity(0.3);
+        statusBadge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppColors.error.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.error.withOpacity(0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.priority_high_rounded,
+                  color: AppColors.error, size: 10),
+              const SizedBox(width: 3),
+              Text(
+                stage.badgeText,
+                style: AppTypography.labelSm.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+        break;
+
       case StageStatus.nextUp:
         containerColor = AppColors.surfaceContainerLow.withOpacity(0.5);
         borderColor = AppColors.outlineVariant.withOpacity(0.2);
@@ -161,12 +191,15 @@ class PipelineStageTile extends StatelessWidget {
                 Text(
                   stage.title,
                   style: AppTypography.labelLg.copyWith(
-                    fontWeight: stage.status == StageStatus.inProgress
+                    fontWeight: stage.status == StageStatus.inProgress ||
+                            stage.status == StageStatus.failed
                         ? FontWeight.w700
                         : FontWeight.w600,
                     color: stage.status == StageStatus.inProgress
                         ? AppColors.primary
-                        : AppColors.onSurface,
+                        : stage.status == StageStatus.failed
+                            ? AppColors.error
+                            : AppColors.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -175,7 +208,9 @@ class PipelineStageTile extends StatelessWidget {
                   style: AppTypography.bodySm.copyWith(
                     color: stage.status == StageStatus.completed
                         ? AppColors.tertiary
-                        : AppColors.onSurfaceVariant,
+                        : stage.status == StageStatus.failed
+                            ? AppColors.error
+                            : AppColors.onSurfaceVariant,
                     fontSize: 11,
                   ),
                   maxLines: 1,
