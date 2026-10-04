@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -20,7 +21,8 @@ class QueueScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.error, size: 24),
             const SizedBox(width: 8),
             Text('Terminate Process?', style: AppTypography.headlineSm),
           ],
@@ -34,14 +36,16 @@ class QueueScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Cancel',
-              style: AppTypography.labelMd.copyWith(color: AppColors.onSurfaceVariant),
+              style: AppTypography.labelMd
+                  .copyWith(color: AppColors.onSurfaceVariant),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.errorContainer,
               foregroundColor: AppColors.onErrorContainer,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999)),
             ),
             onPressed: () {
               state.terminateActiveProcess();
@@ -51,12 +55,75 @@ class QueueScreen extends StatelessWidget {
                   backgroundColor: AppColors.surfaceContainerHighest,
                   content: Text(
                     'Dubbing process terminated.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+                    style:
+                        AppTypography.bodyMd.copyWith(color: AppColors.error),
                   ),
                 ),
               );
             },
             child: const Text('Terminate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Confirmation modal for dropping a job that is still waiting in the queue.
+  void _showRemoveFromQueueDialog(BuildContext context, DubbingTask task) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.playlist_remove_rounded,
+                color: AppColors.warning, size: 24),
+            const SizedBox(width: 8),
+            Text('Remove from queue?', style: AppTypography.headlineSm),
+          ],
+        ),
+        content: Text(
+          'Remove "${task.videoTitle}" from the queue? This video has not started '
+          'processing yet, so nothing will be rendered for it.',
+          style: AppTypography.bodyMd,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: AppTypography.labelMd
+                  .copyWith(color: AppColors.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warningContainer,
+              foregroundColor: AppColors.onSurface,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999)),
+            ),
+            onPressed: () {
+              final removed = state.removeQueuedTask(task.id);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.surfaceContainerHighest,
+                  content: Text(
+                    removed
+                        ? '"${task.videoTitle}" removed from queue.'
+                        : 'This job is no longer in the queue.',
+                    style: AppTypography.bodyMd.copyWith(
+                      color: removed
+                          ? AppColors.warning
+                          : AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              );
+            },
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -144,16 +211,19 @@ class QueueScreen extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Automated Khmer video pipeline monitor',
-                    style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                    style: AppTypography.bodySm
+                        .copyWith(color: AppColors.onSurfaceVariant),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+                  border: Border.all(
+                      color: AppColors.outlineVariant.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -175,7 +245,8 @@ class QueueScreen extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'SYNC LIVE',
-                      style: AppTypography.codeMono.copyWith(fontSize: 10, letterSpacing: 0.8),
+                      style: AppTypography.codeMono
+                          .copyWith(fontSize: 10, letterSpacing: 0.8),
                     ),
                   ],
                 ),
@@ -189,7 +260,8 @@ class QueueScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.primaryContainer.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(999),
@@ -218,7 +290,8 @@ class QueueScreen extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0x26F59E0B),
                   borderRadius: BorderRadius.circular(999),
@@ -247,11 +320,13 @@ class QueueScreen extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.tertiaryContainer.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.tertiary.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppColors.tertiary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -284,218 +359,227 @@ class QueueScreen extends StatelessWidget {
 
           // CARD 1: CURRENTLY PROCESSING VIDEO (only while a job is running)
           if (active != null)
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: active.isProcessing
-                    ? AppColors.primary.withOpacity(0.4)
-                    : AppColors.borderSubtle,
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
                   color: active.isProcessing
-                      ? AppColors.primaryContainer.withOpacity(0.18)
-                      : const Color(0x33000000),
-                  blurRadius: 18,
-                  offset: const Offset(0, 4),
+                      ? AppColors.primary.withOpacity(0.4)
+                      : AppColors.borderSubtle,
+                  width: 1.5,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Title & Processing Badge
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.smart_display_rounded,
-                                  color: AppColors.secondary,
-                                  size: 15,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '${active.duration} • Voice: ${active.voiceProfile.name}',
-                                  style: AppTypography.codeMono.copyWith(
-                                    color: AppColors.onSurfaceVariant,
-                                    fontSize: 11,
+                boxShadow: [
+                  BoxShadow(
+                    color: active.isProcessing
+                        ? AppColors.primaryContainer.withOpacity(0.18)
+                        : const Color(0x33000000),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Title & Processing Badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.smart_display_rounded,
+                                    color: AppColors.secondary,
+                                    size: 15,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              active.videoTitle,
-                              style: AppTypography.headlineSm.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${active.duration} • Voice: ${active.voiceProfile.name}',
+                                    style: AppTypography.codeMono.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.secondary.withOpacity(0.2),
-                              AppColors.primary.withOpacity(0.25),
+                              const SizedBox(height: 4),
+                              Text(
+                                active.videoTitle,
+                                style: AppTypography.headlineSm.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.4)),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (active.isProcessing)
-                              Container(
-                                width: 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: const BoxDecoration(
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.secondary.withOpacity(0.2),
+                                AppColors.primary.withOpacity(0.25),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                                color: AppColors.primary.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (active.isProcessing)
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              Text(
+                                active.isProcessing
+                                    ? 'PROCESSING (${(active.progress * 100).toInt()}%)'
+                                    : 'COMPLETED (100%)',
+                                style: AppTypography.labelSm.copyWith(
                                   color: AppColors.primary,
-                                  shape: BoxShape.circle,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            Text(
-                              active.isProcessing
-                                  ? 'PROCESSING (${(active.progress * 100).toInt()}%)'
-                                  : 'COMPLETED (100%)',
-                              style: AppTypography.labelSm.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w800,
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Overall Gradient Progress Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        height: 6,
+                        color: AppColors.surfaceContainerLowest,
+                        child: Stack(
+                          children: [
+                            FractionallySizedBox(
+                              widthFactor: active.progress.clamp(0.0, 1.0),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.secondary,
+                                      AppColors.primary
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-                  // Overall Gradient Progress Bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      height: 6,
-                      color: AppColors.surfaceContainerLowest,
-                      child: Stack(
+                    // 4-Stage Progression Flow
+                    Text(
+                      'PIPELINE STAGE PROGRESSION',
+                      style: AppTypography.labelSm.copyWith(
+                        letterSpacing: 0.8,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    ...active.stages
+                        .map((stage) => PipelineStageTile(stage: stage)),
+
+                    const SizedBox(height: 8),
+
+                    // Real-time Console Log Box
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.surfaceContainerLowest.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.borderSubtle),
+                      ),
+                      child: Row(
                         children: [
-                          FractionallySizedBox(
-                            widthFactor: active.progress.clamp(0.0, 1.0),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [AppColors.secondary, AppColors.primary],
-                                ),
+                          const Icon(
+                            Icons.terminal_rounded,
+                            color: AppColors.secondary,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              active.liveStatusLog,
+                              style: AppTypography.codeMono.copyWith(
+                                fontSize: 11,
+                                color: AppColors.onSurface,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
-
-                  // 4-Stage Progression Flow
-                  Text(
-                    'PIPELINE STAGE PROGRESSION',
-                    style: AppTypography.labelSm.copyWith(
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  ...active.stages.map((stage) => PipelineStageTile(stage: stage)),
-
-                  const SizedBox(height: 8),
-
-                  // Real-time Console Log Box
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLowest.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.terminal_rounded,
-                          color: AppColors.secondary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            active.liveStatusLog,
-                            style: AppTypography.codeMono.copyWith(
-                              fontSize: 11,
-                              color: AppColors.onSurface,
+                    if (active.isProcessing) ...[
+                      const SizedBox(height: 14),
+                      // Terminate Process Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFF87171),
+                            side: BorderSide(
+                              color: const Color(0xFFEF4444).withOpacity(0.35),
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            backgroundColor:
+                                const Color(0xFFEF4444).withOpacity(0.08),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (active.isProcessing) ...[
-                    const SizedBox(height: 14),
-                    // Terminate Process Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFF87171),
-                          side: BorderSide(
-                            color: const Color(0xFFEF4444).withOpacity(0.35),
-                          ),
-                          backgroundColor: const Color(0xFFEF4444).withOpacity(0.08),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () => _showTerminateDialog(context),
-                        icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                        label: Text(
-                          'Terminate Process',
-                          style: AppTypography.labelMd.copyWith(
-                            color: const Color(0xFFF87171),
-                            fontWeight: FontWeight.w600,
+                          onPressed: () => _showTerminateDialog(context),
+                          icon:
+                              const Icon(Icons.stop_circle_outlined, size: 18),
+                          label: Text(
+                            'Terminate Process',
+                            style: AppTypography.labelMd.copyWith(
+                              color: const Color(0xFFF87171),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
 
           // CARD 2: QUEUED VIDEOS
           if (queued.isNotEmpty) ...[
@@ -509,103 +593,142 @@ class QueueScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            ...queued.map(
-              (item) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.schedule_rounded,
-                                    color: AppColors.warning,
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    '${item.duration} • Voice: ${item.voiceProfile.name}',
-                                    style: AppTypography.codeMono.copyWith(
-                                      color: AppColors.onSurfaceVariant,
-                                      fontSize: 11,
+            ...queued.asMap().entries.map(
+              (entry) {
+                final item = entry.value;
+                final queuePosition = entry.key + 1;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderSubtle),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.schedule_rounded,
+                                      color: AppColors.warning,
+                                      size: 15,
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                item.videoTitle,
-                                style: AppTypography.headlineSm.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '${item.duration} • Voice: ${item.voiceProfile.name}',
+                                      style: AppTypography.codeMono.copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0x26F59E0B),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0x4DF59E0B)),
-                          ),
-                          child: Text(
-                            'QUEUED #${queued.indexOf(item) + 1}',
-                            style: AppTypography.labelSm.copyWith(
-                              color: const Color(0xFFFDE68A),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 10,
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.videoTitle,
+                                  style: AppTypography.headlineSm.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLowest.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.hourglass_empty_rounded,
-                            color: AppColors.warning,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0x26F59E0B),
+                              borderRadius: BorderRadius.circular(999),
+                              border:
+                                  Border.all(color: const Color(0x4DF59E0B)),
+                            ),
                             child: Text(
-                              'Awaiting worker slot • Will execute after active render',
-                              style: AppTypography.bodySm.copyWith(
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                              'QUEUED #$queuePosition',
+                              style: AppTypography.labelSm.copyWith(
+                                color: const Color(0xFFFDE68A),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 10,
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color:
+                              AppColors.surfaceContainerLowest.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.hourglass_empty_rounded,
+                              color: AppColors.warning,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Awaiting worker slot • Will execute after active render',
+                                style: AppTypography.bodySm.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Drop this job from the queue before it gets a worker slot
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.warning,
+                            side: BorderSide(
+                              color: AppColors.warning.withOpacity(0.35),
+                            ),
+                            backgroundColor:
+                                AppColors.warning.withOpacity(0.08),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () =>
+                              _showRemoveFromQueueDialog(context, item),
+                          icon: const Icon(Icons.playlist_remove_rounded,
+                              size: 18),
+                          label: Text(
+                            'Remove from queue',
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
 
@@ -677,8 +800,10 @@ class QueueScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryContainer,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
                       ),
                       onPressed: () {
                         state.setTabIndex(2); // Jump to Player screen

@@ -121,4 +121,139 @@ void main() {
 
     state.dispose();
   });
+
+  testWidgets('removeQueuedTask drops only the target job', (tester) async {
+    final state = AppState();
+    await tester.pump();
+
+    state.startNewDubbingJob(
+      videoTitle: 'running.mp4',
+      duration: '01:00',
+      fileSpecs: '1.0 MB • MP4 • 640 × 480',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'queued-1.mp4',
+      duration: '02:00',
+      fileSpecs: '2.0 MB • MP4 • 1280 × 720',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'queued-2.mp4',
+      duration: '03:00',
+      fileSpecs: '3.0 MB • MP4 • 1920 × 1080',
+    );
+
+    expect(state.queuedTasks.length, 2);
+    final target = state.queuedTasks.first;
+
+    expect(state.removeQueuedTask(target.id), isTrue);
+
+    // Only the targeted job is gone; the active render is untouched.
+    expect(state.queuedTasks.length, 1);
+    expect(state.queuedTasks.first.videoTitle, 'queued-2.mp4');
+    expect(state.activeTask!.videoTitle, 'running.mp4');
+    expect(state.activeTask!.isProcessing, isTrue);
+
+    state.dispose();
+  });
+
+  testWidgets('removeQueuedTask renumbers the remaining queue positions',
+      (tester) async {
+    final state = AppState();
+    await tester.pump();
+
+    state.startNewDubbingJob(
+      videoTitle: 'running.mp4',
+      duration: '01:00',
+      fileSpecs: '1.0 MB • MP4 • 640 × 480',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'queued-1.mp4',
+      duration: '02:00',
+      fileSpecs: '2.0 MB • MP4 • 1280 × 720',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'queued-2.mp4',
+      duration: '03:00',
+      fileSpecs: '3.0 MB • MP4 • 1920 × 1080',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'queued-3.mp4',
+      duration: '04:00',
+      fileSpecs: '4.0 MB • MP4 • 1920 × 1080',
+    );
+
+    expect(state.queuedTasks[0].liveStatusLog, contains('#1'));
+    expect(state.queuedTasks[2].liveStatusLog, contains('#3'));
+
+    // Removing the head promotes queued-2 to position #1.
+    state.removeQueuedTask(state.queuedTasks.first.id);
+
+    expect(state.queuedTasks.first.videoTitle, 'queued-2.mp4');
+    expect(state.queuedTasks.first.liveStatusLog, contains('#1'));
+    expect(state.queuedTasks.last.videoTitle, 'queued-3.mp4');
+    expect(state.queuedTasks.last.liveStatusLog, contains('#2'));
+
+    state.dispose();
+  });
+
+  testWidgets('removeQueuedTask returns false for unknown or active jobs',
+      (tester) async {
+    final state = AppState();
+    await tester.pump();
+
+    state.startNewDubbingJob(
+      videoTitle: 'running.mp4',
+      duration: '01:00',
+      fileSpecs: '1.0 MB • MP4 • 640 × 480',
+    );
+    final activeId = state.activeTask!.id;
+
+    expect(state.removeQueuedTask('does-not-exist'), isFalse);
+    expect(state.removeQueuedTask(activeId), isFalse);
+    expect(state.activeTask!.videoTitle, 'running.mp4');
+    expect(state.activeTask!.isProcessing, isTrue);
+
+    state.dispose();
+  });
+
+  testWidgets('a removed job never runs even after the active one finishes',
+      (tester) async {
+    final state = AppState();
+    await tester.pump();
+
+    state.startNewDubbingJob(
+      videoTitle: 'running.mp4',
+      duration: '01:00',
+      fileSpecs: '1.0 MB • MP4 • 640 × 480',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'keep.mp4',
+      duration: '02:00',
+      fileSpecs: '2.0 MB • MP4 • 1280 × 720',
+    );
+    state.startNewDubbingJob(
+      videoTitle: 'drop.mp4',
+      duration: '03:00',
+      fileSpecs: '3.0 MB • MP4 • 1920 × 1080',
+    );
+
+    final dropped = state.queuedTasks.firstWhere(
+      (task) => task.videoTitle == 'drop.mp4',
+    );
+    expect(state.removeQueuedTask(dropped.id), isTrue);
+
+    // The active job completes and promotes the surviving queued job.
+    await tester.pump(const Duration(seconds: 40));
+    expect(state.activeTask!.videoTitle, 'keep.mp4');
+    expect(state.queuedTasks, isEmpty);
+
+    await tester.pump(const Duration(seconds: 40));
+    expect(state.completedTasks.length, 2);
+    expect(
+      state.completedTasks.map((task) => task.videoTitle),
+      isNot(contains('drop.mp4')),
+    );
+
+    state.dispose();
+  });
 }

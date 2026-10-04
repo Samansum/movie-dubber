@@ -103,6 +103,10 @@ class AppState extends ChangeNotifier {
   Timer? _progressTimer;
   Duration _activeElapsed = Duration.zero;
 
+  /// Monotonic counter guaranteeing unique task ids, since `DateTime.now()`
+  /// can return the same timestamp for jobs enqueued in quick succession.
+  int _taskIdCounter = 0;
+
   /// The task currently being processed, or `null` when the pipeline is idle.
   DubbingTask? _activeTask;
   DubbingTask? get activeTask => _activeTask;
@@ -153,7 +157,7 @@ class AppState extends ChangeNotifier {
   Future<void> loadSettingsFromStorage() async {
     try {
       _prefs = await SharedPreferences.getInstance();
-      
+
       // Restore selected voice profile
       final savedVoiceId = _prefs?.getString('selected_voice_id');
       if (savedVoiceId != null) {
@@ -294,14 +298,20 @@ class AppState extends ChangeNotifier {
   }
 
   /// Creates a brand-new dubbing task for the currently selected voice model.
+  ///
+  /// [taskId] must be unique: it is what identifies the job in the queue (for
+  /// example when removing it). A monotonic counter is mixed into the id
+  /// because `DateTime.now()` is not fine-grained enough on every platform —
+  /// several jobs enqueued in the same instant would otherwise collide.
   DubbingTask _createTask({
     required String videoTitle,
     required String duration,
     required String fileSpecs,
+    required String taskId,
   }) {
     final voice = _selectedVoice;
     return DubbingTask(
-      id: 'task_${DateTime.now().microsecondsSinceEpoch}',
+      id: taskId,
       videoTitle: videoTitle,
       duration: duration,
       fileSpecs: fileSpecs,
@@ -313,6 +323,12 @@ class AppState extends ChangeNotifier {
       stages: _buildStages(voice: voice, activeStageIndex: 0),
       liveStatusLog: 'Preparing pipeline for $videoTitle',
     );
+  }
+
+  /// Generates an id that is guaranteed not to clash with any other task.
+  String _generateTaskId() {
+    _taskIdCounter += 1;
+    return 'task_${DateTime.now().microsecondsSinceEpoch}_$_taskIdCounter';
   }
 
   /// Adds [videoTitle] (with the currently selected voice model) to the dubbing
@@ -327,6 +343,7 @@ class AppState extends ChangeNotifier {
       videoTitle: videoTitle,
       duration: duration,
       fileSpecs: fileSpecs,
+      taskId: _generateTaskId(),
     );
 
     if (_activeTask == null || !_activeTask!.isProcessing) {
@@ -338,7 +355,8 @@ class AppState extends ChangeNotifier {
           isProcessing: false,
           isQueued: true,
           stages: _buildStages(voice: task.voiceProfile, activeStageIndex: -1),
-          liveStatusLog: 'Waiting in queue position #${_queuedTasks.length + 1}',
+          liveStatusLog:
+              'Waiting in queue position #${_queuedTasks.length + 1}',
         ),
       );
     }
@@ -356,6 +374,21 @@ class AppState extends ChangeNotifier {
     _activeTask = null;
     _startNextQueuedTask();
     notifyListeners();
+  }
+
+  /// Removes the queued task with [taskId] from the queue without touching the
+  /// currently active render.
+  ///
+  /// Returns `true` when a task was found and removed. The remaining queue
+  /// entries are renumbered so their live log keeps matching their position.
+  bool removeQueuedTask(String taskId) {
+    final index = _queuedTasks.indexWhere((task) => task.id == taskId);
+    if (index == -1) return false;
+
+    _queuedTasks.removeAt(index);
+    _renumberQueue();
+    notifyListeners();
+    return true;
   }
 
   void _beginActiveProcessing() {

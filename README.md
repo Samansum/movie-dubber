@@ -34,6 +34,7 @@ A mobile Flutter application engineered from the Google Stitch design (**Khmer V
   * **Sreymom Neural (Female)**: `km-KH-SreymomNeural` with sample player and Khmer text (*«សូមស្វាគមន៍មកកាន់ CineDub»*).
 * **Audio Tuning Controls**: Sliders for Pitch offset (-10 to +10 Hz), Speech cadence (0.8x to 1.4x), and Background Ducking (-50% to -10%) with default reset button.
 * **Shimmer Gradient CTA**: **Start AI Khmer Dubbing** button initiates the pipeline and routes to the Queue monitor.
+* **Form Reset After Start**: once the job is handed over to the queue, the viewport is cleared back to its empty state and the preview player is released, so the user can immediately pick the next video without any leftover state.
 
 ### 2. Dubbing Queue (Video Processing)
 * **Real Data Only**: the queue starts completely empty. Every job is created from the video and voice model the user actually selected on the New Dub screen — no sample/placeholder jobs.
@@ -50,6 +51,7 @@ A mobile Flutter application engineered from the Google Stitch design (**Khmer V
   * **Live Console**: Streaming event log with terminal styling.
   * **Terminate Process**: Action button with confirmation modal; aborting the current render promotes the next queued job.
 * **Queued & Completed Cards**: **Queued Videos** and **Recently Completed** sections are hidden whenever they have no items, and an empty-state card is shown when there are no jobs at all.
+* **Remove from Queue**: every queued card has a full-width **Remove from queue** action (with confirmation modal) so the user can drop a waiting video before it ever starts. Removing a job renumbers the remaining queue positions and never interrupts the running render.
 
 ### 3. Completed Dub (Player & Save to Gallery)
 * **Status & Telemetry Banner**: Rendering & sync complete banner with file specs (`1080p 60fps • 48kHz • 54.2 MB`).

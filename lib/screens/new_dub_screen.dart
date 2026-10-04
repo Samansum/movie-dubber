@@ -146,6 +146,38 @@ class _NewDubScreenState extends State<NewDubScreen> {
         : 'video';
   }
 
+  /// Releases the currently selected clip and resets the viewport back to its
+  /// empty state.
+  ///
+  /// Called right after a job has been handed over to the queue so the user
+  /// can pick the next video. The form fields are reset synchronously so the
+  /// empty state shows up immediately and a double tap on the CTA cannot
+  /// enqueue the same clip twice; the player is released afterwards because
+  /// disposing it is asynchronous.
+  Future<void> _clearSelectedVideo() async {
+    final controller = _videoController;
+    _videoController = null;
+
+    if (mounted) {
+      setState(() {
+        _videoAsset = null;
+        _isPlayingPreview = false;
+        _isLoadingVideo = false;
+      });
+    }
+
+    if (controller == null) return;
+    controller.removeListener(_onVideoControllerUpdate);
+    try {
+      if (controller.value.isPlaying) {
+        await controller.pause();
+      }
+      await controller.dispose();
+    } catch (e) {
+      debugPrint('Error releasing video preview: $e');
+    }
+  }
+
   /// Keeps the preview flag in sync with the real player state and restores
   /// the overlay controls once playback finishes.
   void _onVideoControllerUpdate() {
@@ -554,17 +586,29 @@ class _NewDubScreenState extends State<NewDubScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () {
+                onTap: () async {
                   if (!_hasSelectedVideo) {
                     _showVideoSelectorModal();
                     return;
                   }
 
+                  // Snapshot the clip before the form is reset: the job below
+                  // needs its metadata while `_clearSelectedVideo` wipes the
+                  // viewport back to its empty state.
+                  final asset = _videoAsset!;
+                  final videoFileName = asset.fileName;
+
                   state.startNewDubbingJob(
-                    videoTitle: _videoAsset!.fileName,
-                    duration: _videoAsset!.durationText,
-                    fileSpecs: _videoAsset!.fileSpecs,
+                    videoTitle: videoFileName,
+                    duration: asset.durationText,
+                    fileSpecs: asset.fileSpecs,
                   );
+
+                  // The clip now belongs to the queue, so drop it from the form
+                  // and show the empty state ready for the next pick.
+                  await _clearSelectedVideo();
+
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: AppColors.surfaceContainerHigh,
@@ -575,7 +619,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Dubbing pipeline started for ${_videoAsset!.fileName}!',
+                              'Dubbing pipeline started for $videoFileName!',
                               style: AppTypography.bodyMd
                                   .copyWith(color: Colors.white),
                             ),
