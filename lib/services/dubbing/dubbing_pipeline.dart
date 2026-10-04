@@ -195,6 +195,9 @@ class DubbingPipeline {
         durationProbe: _ffmpeg.probeDuration,
         pitchHz: pitchHz,
         speedMultiplier: speedMultiplier,
+        // Lets the worker pool bail out between lines when the user terminates
+        // the job, instead of rendering every remaining cue.
+        isCancelled: () => _cancelled,
         onProgress: (completed, total) {
           // Stage 3 owns the 0.5 – 0.85 slice of the overall bar.
           onProgress?.call(DubbingProgress(

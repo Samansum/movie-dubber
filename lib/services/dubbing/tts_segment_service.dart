@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
 import '../../models/dub_models.dart';
 import '../../models/srt_models.dart';
 import '../edge_tts_service.dart';
+import 'ffmpeg_dubbing_service.dart';
 
 /// Measures a rendered audio file. Returns the duration in seconds, or `null`
 /// when it cannot be determined.
@@ -53,57 +55,92 @@ class TtsSegmentService {
     required AudioDurationProbe durationProbe,
     double pitchHz = 0.0,
     double speedMultiplier = 1.0,
+    int concurrency = 10,
+    bool Function()? isCancelled,
     void Function(int completed, int total)? onProgress,
   }) async {
     final dir = Directory(outputDir);
-    if (!dir.existsSync()) {
-      await dir.create(recursive: true);
-    }
+    if (!dir.existsSync()) await dir.create(recursive: true);
 
-    // The cadence slider shapes how the voice reads; `atempo` later only
-    // stretches the result to fit the subtitle slot.
     final rate = formatEdgeRate(speedMultiplier);
     final pitch = formatPitch(pitchHz);
 
-    final segments = <DubbingSegment>[];
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      final voiceId =
-          resolveVoiceId(selectedVoice: selectedVoice, gender: entry.gender);
+    final results = List<DubbingSegment?>.filled(entries.length, null);
+    var next = 0;
+    var completed = 0;
+    Object? failure;
+    StackTrace? failureStack;
 
-      final audioPath = '${dir.path}/line_${entry.index}.mp3';
-
-      // EdgeTtsService only caches preview samples, so each line is written
-      // to its own file here.
-      final bytes = await _tts.synthesize(
-        text: entry.text,
-        voice: voiceId,
-        rate: rate,
-        pitch: pitch,
-      );
-      await File(audioPath).writeAsBytes(bytes, flush: true);
-
-      // Measure the real rendered duration so `atempo` can fit it to the slot.
-      final duration = await durationProbe(audioPath);
-
-      segments.add(
-        DubbingSegment(
-          audioPath: audioPath,
-          startSeconds: entry.startSeconds,
-          durationSeconds: duration ?? entry.slotDuration,
-          targetSlotDuration: entry.slotDuration,
-          gender: entry.gender,
-        ),
-      );
-
-      onProgress?.call(i + 1, entries.length);
+    Future<void> worker() async {
+      while (failure == null && !(isCancelled?.call() ?? false)) {
+        final i = next++;
+        if (i >= entries.length) return;
+        try {
+          results[i] = await _renderEntry(
+            entry: entries[i],
+            selectedVoice: selectedVoice,
+            dirPath: dir.path,
+            rate: rate,
+            pitch: pitch,
+            durationProbe: durationProbe,
+          );
+          onProgress?.call(++completed, entries.length);
+        } catch (e, st) {
+          failure ??= e;
+          failureStack ??= st;
+          return;
+        }
+      }
     }
 
-    debugPrint(
-      '[TtsSegmentService] Synthesized ${segments.length} segments at '
-      '${speedMultiplier}x cadence into $outputDir',
+    final workers = math.min(concurrency, entries.length);
+    await Future.wait(List.generate(workers, (_) => worker()));
+
+    if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
+    if (isCancelled?.call() ?? false) throw const FfmpegCancelledException();
+
+    return results.cast<DubbingSegment>(); // same order as entries
+  }
+
+  Future<DubbingSegment> _renderEntry({
+    required SrtEntry entry,
+    required VoiceProfile selectedVoice,
+    required String dirPath,
+    required String rate,
+    required String pitch,
+    required AudioDurationProbe durationProbe,
+  }) async {
+    final voiceId =
+    resolveVoiceId(selectedVoice: selectedVoice, gender: entry.gender);
+    final audioPath = '$dirPath/line_${entry.index}.mp3';
+
+    final bytes = await _withRetry(() async {
+      final b = await _tts.synthesize(
+          text: entry.text, voice: voiceId, rate: rate, pitch: pitch);
+      if (b.isEmpty) throw StateError('Empty TTS audio for cue ${entry.index}');
+      return b;
+    });
+    await File(audioPath).writeAsBytes(bytes, flush: true);
+
+    final duration = await durationProbe(audioPath);
+    return DubbingSegment(
+      audioPath: audioPath,
+      startSeconds: entry.startSeconds,
+      durationSeconds: duration ?? entry.slotDuration,
+      targetSlotDuration: entry.slotDuration,
+      gender: entry.gender,
     );
-    return segments;
+  }
+
+  Future<T> _withRetry<T>(Future<T> Function() fn, {int attempts = 3}) async {
+    for (var attempt = 1;; attempt++) {
+      try {
+        return await fn();
+      } catch (_) {
+        if (attempt >= attempts) rethrow;
+        await Future.delayed(Duration(milliseconds: 500 * attempt * attempt));
+      }
+    }
   }
 
   /// Converts a Hertz offset into the Edge TTS `+12Hz` / `-3Hz` notation.
