@@ -51,6 +51,7 @@ A job is tracked stage-by-stage and **stops at the first stage that throws**:
 | `audioplayers` | ^6.8.1 | Voice-sample playback |
 | `video_player` | ^2.11.1 | Video preview & final playback |
 | `file_picker` | ^8.1.7 | Source-video selection |
+| `gal` | ^2.3.3 | Save the render to the device's Movies/Videos collection |
 | `shared_preferences` | ^2.5.5 | Persist settings & API-key pool |
 | `path_provider` | ^2.1.6 | App documents dir for job artifacts |
 
@@ -110,19 +111,20 @@ The Settings tab manages a **pool** of Gemini keys with rotation strategies (`Ra
 * **Remove from Queue**: every queued card has a full-width **Remove from queue** action (with confirmation modal) so the user can drop a waiting video before it ever starts. Removing a job renumbers the remaining queue positions and never interrupts the running render.
 
 ### 3. Completed Dub (Player & Save to Gallery)
-> **Status: UI mockup.** This screen is not yet wired to the rendered output — it still renders hard-coded telemetry (`54.2 MB`, `1080p 60fps`) and static segments. The pipeline already produces a real output path on each completed job (`DubbingTask.outputPath`), which is what this screen should consume next.
+> **Status: wired to the real render.** The screen plays `DubbingTask.outputPath` with `video_player`, and the Save action copies that file into the device's public Movies/Videos collection via the MediaStore-backed `gal` plugin.
 
-* **Status & Telemetry Banner**: Rendering & sync complete banner with file specs.
+* **Play from the Queue**: each **Recently Completed** card has a **Play** button that opens *that specific* job (`AppState.openTaskInPlayer`) and switches to the Player tab. When nothing was opened explicitly, `AppState.playerTask` falls back to the newest successful render.
+* **Status & Telemetry Banner**: Rendering & sync complete banner, bound to the real job — file name, `fileSpecs` and voice are read from the task, and duration / playback position come from the decoder.
 * **16:9 Video Player Viewport**:
-  * Full video player frame with timecode overlays (`REC 01:14`).
-  * Play / Pause floating glass button with glowing violet halo.
-  * **Dual-Language Live Subtitles**: Real-time Khmer subtitles (*«យើងបានបញ្ចប់បេសកកម្មដោយជោគជ័យ!»*) with English reference and subtitle toggle (**KM SUB** / **SUB OFF**).
-  * **Audio Track Switcher**: Instant switching between **Khmer AI** and **Original English**.
-  * **Interactive Scrubber**: Seek bar with current time and total duration.
-* **Dialogue Segments QC**: Timestamped list of translated lines — these can be fed directly from the parsed `SrtEntry` list the pipeline already returns.
+  * Real decoded frames via `VideoPlayerController.file`, with the aspect ratio taken from the source.
+  * Play / Pause floating glass button with glowing violet halo; replays from the start once the video has finished.
+  * **Interactive Scrubber**: seek bar bound to the controller's position/duration.
+  * A spinner while decoding, and a raw, selectable error message if the file is missing or cannot be opened.
 * **Primary Save to Gallery Action**:
-  * Multi-state CTA: **Save to Gallery** ➔ **Saving to /DCIM...** ➔ **Saved in Photo Library!** (with emerald feedback).
-  * Share video and New Dub shortcuts.
+  * Multi-state CTA: **Save to Gallery** ➔ **Saving…** ➔ **Saved to Gallery** (emerald) ➔ **Retry Save to Gallery** on failure.
+  * Saves with `Gal.putVideo(path, album: 'CineDub AI')`, so the file is published to the device's Movies collection (visible in a file manager / gallery app), not just inside the app sandbox.
+  * Requests storage access first on Android 10 and below; failures surface the plugin's raw message in a selectable error panel rather than silently reporting success.
+* **Removed**: the hard-coded SRT subtitle overlay, the dialogue-segment QC list, the audio-track switcher, **Share Video** and **New Dub**.
 
 ### 4. Dubbing Settings (Gemini API Keys & Config)
 * **Gemini API Keys Pool**: Multi-key management to bypass RPM/TPM restrictions during full-length dubbing.
@@ -167,7 +169,8 @@ lib/
 
 ## 🧪 Testing
 
-* `flutter test` runs the suite (58 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+* `flutter test` runs the suite (63 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+  * **Player tests** cover the completed-job selection contract: `openTaskInPlayer` picks the tapped job over the "latest" fallback and jumps to the Player tab, and `saveToGallery` reports a raw error (rather than claiming success) when there is no render or the output file is gone.
   * **Queue tests** drive the real `AppState` pipeline orchestration through an injectable fake pipeline (FIFO promotion, terminate/cancel, remove-from-queue, renumbering, fast-fail on missing source file / API key, key-pool rotation).
   * **Stage error-tracking tests** assert the failure contract: a failed stage is never recorded as a completed render, the failing stage is marked `failed` while earlier stages are `completed` and later ones `pending`, each of the four stage indices maps to the right failing step, the raw FFmpeg command + log survive verbatim into the copyable report, and a failed job still promotes the next queued job.
   * **SRT / parser tests** cover timestamp normalization, blank-line collapsing, invisible-character removal, `[M]`/`[F]` gender parsing, Gemini model-id mapping, voice routing, and `atempo` speed math — no network required.
@@ -177,7 +180,6 @@ lib/
 
 ## ⚠️ Known Gaps / Next Steps
 
-* **Completed Player is a mockup** — it is not yet bound to `DubbingTask.outputPath`; telemetry and segments are hard-coded (see screen 3 above).
 * **Long-video limit** — Gemini receives audio as base64 `inlineData` capped at roughly 20MB. Full-length feature films need chunked audio (with cue timestamps offset per chunk) or the Gemini Files API.
 * **`widget_test.dart` smoke test** fails independently of the pipeline because it loads remote Unsplash images that the Flutter test binding blocks.
 * **`withOpacity` deprecation** — `flutter analyze` reports 86 `deprecated_member_use` infos for `Color.withOpacity` across the UI files (pre-existing, cosmetic; `withValues(alpha:)` is the replacement).

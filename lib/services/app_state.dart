@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -129,21 +130,34 @@ class AppState extends ChangeNotifier {
   List<DubbingTask> get failedTasks => List.unmodifiable(_failedTasks);
 
   // Player State
+  /// Mirrors the real `video_player` play state so the rest of the app can
+  /// observe playback without owning the controller.
   bool _isPlayingVideo = false;
   bool get isPlayingVideo => _isPlayingVideo;
 
-  bool _isSubtitleEnabled = true;
-  bool get isSubtitleEnabled => _isSubtitleEnabled;
+  /// The completed job opened in the Player screen.
+  ///
+  /// Set by the Queue screen's "Play" button. Falls back to the most recent
+  /// successful render so the Player tab is never empty after a job finishes.
+  DubbingTask? _playerTask;
+  DubbingTask? get playerTask =>
+      _playerTask ?? (_completedTasks.isNotEmpty ? _completedTasks.first : null);
 
-  bool _isKhmerAudioTrack = true; // true = Khmer AI, false = Original English
-  bool get isKhmerAudioTrack => _isKhmerAudioTrack;
+  /// Opens [task] in the Player screen and jumps to that tab.
+  void openTaskInPlayer(DubbingTask task) {
+    _playerTask = task;
+    _isPlayingVideo = false;
+    _saveGalleryState = 'idle';
+    _currentTabIndex = 2;
+    notifyListeners();
+  }
 
-  double _playbackSeconds = 74.0; // 01:14
-  double get playbackSeconds => _playbackSeconds;
-  final double totalVideoDurationSeconds = 110.0; // 01:50
-
-  String _saveGalleryState = 'idle'; // 'idle', 'saving', 'saved'
+  String _saveGalleryState = 'idle'; // 'idle', 'saving', 'saved', 'error'
   String get saveGalleryState => _saveGalleryState;
+
+  /// Raw failure text from the last save attempt, `null` when it succeeded.
+  String? _saveGalleryError;
+  String? get saveGalleryError => _saveGalleryError;
 
   // Settings & API Keys (Default to empty list, no dummy keys)
   final List<ApiKeyItem> _apiKeys = [];
@@ -714,40 +728,67 @@ class AppState extends ChangeNotifier {
   }
 
   // Player Controls
-  void togglePlayVideo() {
-    _isPlayingVideo = !_isPlayingVideo;
-    notifyListeners();
-  }
-
-  void toggleSubtitle() {
-    _isSubtitleEnabled = !_isSubtitleEnabled;
-    notifyListeners();
-  }
-
-  void setAudioTrack(bool isKhmer) {
-    _isKhmerAudioTrack = isKhmer;
-    notifyListeners();
-  }
-
-  void seekVideo(double seconds) {
-    _playbackSeconds = seconds.clamp(0.0, totalVideoDurationSeconds);
-    notifyListeners();
-  }
-
-  void saveToGallery(VoidCallback onDone) {
-    _saveGalleryState = 'saving';
-    notifyListeners();
-
-    Timer(const Duration(milliseconds: 1400), () {
-      _saveGalleryState = 'saved';
+  /// Mirrors the real player's play state into the app state.
+  void setPlayingVideo(bool playing) {
+    if (_isPlayingVideo != playing) {
+      _isPlayingVideo = playing;
       notifyListeners();
-      onDone();
+    }
+  }
 
-      Timer(const Duration(seconds: 3), () {
-        _saveGalleryState = 'idle';
-        notifyListeners();
-      });
-    });
+  /// Copies the rendered video for [playerTask] into the device's public
+  /// Movies/Videos collection.
+  ///
+  /// Uses the MediaStore-backed `gal` plugin, so the file is visible in a file
+  /// manager / gallery app (not just inside the app sandbox). Errors are
+  /// surfaced through [saveGalleryError] with the plugin's raw message rather
+  /// than being swallowed.
+  Future<void> saveToGallery() async {
+    final task = playerTask;
+    final sourcePath = task?.outputPath;
+
+    if (task == null || sourcePath == null || sourcePath.isEmpty) {
+      _saveGalleryState = 'error';
+      _saveGalleryError =
+          'No rendered video available for "${task?.videoTitle ?? 'unknown'}".';
+      notifyListeners();
+      return;
+    }
+
+    final source = File(sourcePath);
+    if (!source.existsSync()) {
+      _saveGalleryState = 'error';
+      _saveGalleryError = 'The rendered video no longer exists on disk:\n'
+          '$sourcePath';
+      notifyListeners();
+      return;
+    }
+
+    _saveGalleryState = 'saving';
+    _saveGalleryError = null;
+    notifyListeners();
+
+    try {
+      // Android 10 and below need an explicit grant before the shared
+      // collection can be written to.
+      if (!await Gal.hasAccess(toAlbum: true)) {
+        await Gal.requestAccess(toAlbum: true);
+      }
+
+      // `album` becomes a sub-folder of the device's Movies directory.
+      await Gal.putVideo(sourcePath, album: 'CineDub AI');
+
+      _saveGalleryState = 'saved';
+      _saveGalleryError = null;
+    } on GalException catch (e) {
+      _saveGalleryState = 'error';
+      _saveGalleryError = '${e.type.message}\n(${e.type.name})';
+    } catch (e) {
+      _saveGalleryState = 'error';
+      _saveGalleryError = e.toString();
+    }
+
+    notifyListeners();
   }
 
   // Settings & Keys

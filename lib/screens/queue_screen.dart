@@ -918,7 +918,8 @@ class QueueScreen extends StatelessWidget {
                             horizontal: 14, vertical: 8),
                       ),
                       onPressed: () {
-                        state.setTabIndex(2); // Jump to Player screen
+                        // Opens THIS job's render in the Player tab.
+                        state.openTaskInPlayer(item);
                       },
                       child: Text(
                         'Play',

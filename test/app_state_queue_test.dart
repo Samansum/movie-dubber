@@ -527,7 +527,96 @@ void main() {
       state.dispose();
     });
   });
-group('Pipeline stage error tracking', () {
+group('Player screen selection', () {
+    test('playerTask is null before anything has rendered', () {
+      final state = AppState();
+      state.addApiKey('K', 'token');
+      expect(state.playerTask, isNull, reason: 'nothing rendered yet');
+
+      state.dispose();
+    });
+
+    testWidgets('openTaskInPlayer selects the job and jumps to the Player tab',
+        (tester) async {
+      final created = <FakePipeline>[];
+      final state = buildState(created, steps: [0, 1, 2, 3]);
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      enqueue(state, 'beta');
+      await tester.pumpAndSettle();
+
+      expect(state.completedTasks.length, 2);
+
+      // Open the OLDER render explicitly; it must win over the "latest" fallback.
+      final older = state.completedTasks
+          .firstWhere((task) => task.videoTitle == 'alpha.mp4');
+      state.openTaskInPlayer(older);
+
+      expect(state.playerTask!.id, older.id,
+          reason: 'plays the specific job the user tapped');
+      expect(state.playerTask!.videoTitle, 'alpha.mp4');
+      expect(state.currentTabIndex, 2, reason: 'jumps to the Player tab');
+      expect(state.isPlayingVideo, isFalse, reason: 'starts paused');
+
+      state.dispose();
+    });
+
+    testWidgets('playerTask defaults to the most recent render when unset',
+        (tester) async {
+      final created = <FakePipeline>[];
+      final state = buildState(created, steps: [0, 1, 2, 3]);
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      enqueue(state, 'beta');
+      await tester.pumpAndSettle();
+
+      // completedTasks is newest-first, so the fallback is 'beta.mp4'.
+      expect(state.playerTask!.videoTitle, 'beta.mp4');
+
+      state.dispose();
+    });
+
+    testWidgets('saveToGallery fails loudly when there is nothing to save',
+        (tester) async {
+      final state = AppState();
+      state.addApiKey('K', 'token');
+      await tester.pump();
+
+      await state.saveToGallery();
+
+      expect(state.saveGalleryState, 'error');
+      expect(state.saveGalleryError, contains('No rendered video'));
+
+      state.dispose();
+    });
+
+    testWidgets(
+        'saveToGallery reports a missing output file instead of pretending to save',
+        (tester) async {
+      final created = <FakePipeline>[];
+      final state = buildState(created, steps: [0, 1, 2, 3]);
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+
+      final done = state.completedTasks.single;
+      // The fake pipeline reports $workDir/out.mp4, which was never written.
+      expect(File(done.outputPath!).existsSync(), isFalse);
+
+      await state.saveToGallery();
+
+      expect(state.saveGalleryState, 'error',
+          reason: 'must not claim success for a file that does not exist');
+      expect(state.saveGalleryError, contains('no longer exists'));
+
+      state.dispose();
+    });
+  });
+
+  group('Pipeline stage error tracking', () {
     /// Builds a state whose pipeline fails on [failAtStage].
     AppState buildFailingState(int failAtStage, Object error) {
       final state = AppState();
