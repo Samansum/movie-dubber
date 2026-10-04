@@ -119,7 +119,7 @@ class DubbingPipeline {
     required String modelDisplayName,
     double pitchHz = 0.0,
     double speedMultiplier = 1.0,
-    double duckingPercent = -25.0,
+    double duckingPercent = 0.25,
     void Function(DubbingProgress progress)? onProgress,
   }) async {
     _cancelled = false;
@@ -222,8 +222,9 @@ class DubbingPipeline {
         originalVideoPath: videoPath,
         segments: segments,
         outputVideoPath: outputPath,
-        keepBackgroundAudio: true,
-        duckingGainDb: duckingPercent,
+        keepBackgroundAudio: false,
+        backgroundGain: duckingPercent,
+        workDir: workDir,
       ),
     );
 

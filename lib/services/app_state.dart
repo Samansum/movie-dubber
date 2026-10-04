@@ -36,7 +36,7 @@ class AppState extends ChangeNotifier {
   double _speedMultiplier = 1.05;
   double get speedMultiplier => _speedMultiplier;
 
-  double _duckingPercent = -25.0;
+  double _duckingPercent = 0.25;
   double get duckingPercent => _duckingPercent;
 
   String? _playingVoiceSampleId;
