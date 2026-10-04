@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -134,33 +135,31 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ],
                       image: const DecorationImage(
-                        image: NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                        ),
+                        image: AssetImage('assets/images/logo.png'),
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                  Positioned(
-                    bottom: -1,
-                    right: -1,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: AppColors.tertiary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.surface, width: 2),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: AppColors.tertiary,
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // Positioned(
+                  //   bottom: -1,
+                  //   right: -1,
+                  //   child: Container(
+                  //     width: 10,
+                  //     height: 10,
+                  //     decoration: BoxDecoration(
+                  //       color: AppColors.tertiary,
+                  //       shape: BoxShape.circle,
+                  //       border: Border.all(color: AppColors.surface, width: 2),
+                  //       boxShadow: const [
+                  //         BoxShadow(
+                  //           color: AppColors.tertiary,
+                  //           blurRadius: 6,
+                  //           spreadRadius: 1,
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ],
