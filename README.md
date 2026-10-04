@@ -41,6 +41,33 @@ A job is tracked stage-by-stage and **stops at the first stage that throws**:
 
 > Pre-flight failures (missing source file, no usable Gemini key) are attributed to the stage that would have run and carry a `details` string explaining the check that failed.
 
+### Automatic retries
+
+| Stage | Policy |
+|---|---|
+| **2. Transcribe and translate** | **3 retries** on the same key for transient failures (5xx / 503), backing off **2s → 4s → 8s**. A **rate limit (429) or rejected key rotates to the next key in the pool and retries immediately**; the new key gets a full retry budget because it has not been tried yet. When the pool is exhausted the real reason is surfaced instead of looping. |
+| **3. Generate audio** | Per-cue retries: **wait 1s, retry; wait 2s, retry; … up to 5 retries** (`ttsRetryDelays`). If a cue still fails, the stage stops and reports which line, voice and attempt count failed. |
+
+`google_generative_ai` 0.4.x exposes no status code, so `classifyGeminiError` works from the SDK exception subtypes (`InvalidApiKey`, `ServerException`, …) plus the message text: a 429 is matched *before* the generic server bucket because it arrives as `ServerException` yet needs a **different key**, not another try.
+
+### Retrying a failed stage
+
+A failed job shows **Retry this stage** on the failing stage card. The pipeline then **resumes at that stage** instead of starting over:
+
+* Stage 2 → re-reads the persisted `.khmer.srt` (no second Gemini bill).
+* Stage 3 → `reuseExisting` measures and reuses the MP3s already rendered, so **only the failed lines are synthesized again**.
+* Stage 4 → reuses every synthesized line, then re-runs the mux.
+
+### API key rotation
+
+`AppState.rotateKey(keyId)` parks the throttled key and promotes the least-used usable key, which becomes the **default for every subsequent job** until it hits its own limit. Cooldowns are **session-scoped and in-memory only** (60s): persisting a `Cooldown` status would permanently disable a key, because there is no way to tell after a restart that the RPM window rolled over. `reviveParkedKeys()` un-parks anything left over from a previous session.
+
+### Startup cleanup
+
+`WorkspaceCleanupService` runs once per app launch (`AppState.cleanupPreviousRun`) and deletes the previous session's artifacts: the extracted WAV, the SRT, every per-cue MP3 folder and every rendered MP4 inside `dubbing_jobs/`, plus cached `tts_cache_*.mp3` voice previews. The queue is memory-only, so nothing can reference last run's files after a restart.
+
+The `dubbing_jobs/` folder itself is preserved (emptied, not removed) so the next job can write immediately, nothing outside the managed folders is ever touched, and every delete is individually fault-tolerant — one locked file cannot abort the sweep or block app start.
+
 ### Key runtime dependencies
 
 | Package | Version | Purpose |
@@ -169,7 +196,11 @@ lib/
 
 ## 🧪 Testing
 
-* `flutter test` runs the suite (63 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+* `flutter test` runs the suite (78 tests in `app_state_queue_test.dart` + `srt_parser_test.dart`).
+  * **Retry-policy tests** pin the budgets (3 Gemini retries, 5 TTS retries starting at 1s) and the Gemini error classifier, asserting a 429 is routed to key rotation rather than the transient-retry path.
+  * **Key-rotation tests** cover parking the throttled key, promoting the next one as the sticky default, exhausting a single-key pool without looping, and cooldown expiry restoring the key.
+  * **Stage-retry tests** verify a retried job resumes at the failing stage index rather than stage 1, and that `removeFailedTask` drops only the targeted job.
+  * **Cleanup tests** confirm stale WAV/SRT/MP3/MP4 and TTS caches are deleted, the work dir survives, unrelated files are untouched, and the reclaimed byte count is reported.
   * **Player tests** cover the completed-job selection contract: `openTaskInPlayer` picks the tapped job over the "latest" fallback and jumps to the Player tab, and `saveToGallery` reports a raw error (rather than claiming success) when there is no render or the output file is gone.
   * **Queue tests** drive the real `AppState` pipeline orchestration through an injectable fake pipeline (FIFO promotion, terminate/cancel, remove-from-queue, renumbering, fast-fail on missing source file / API key, key-pool rotation).
   * **Stage error-tracking tests** assert the failure contract: a failed stage is never recorded as a completed render, the failing stage is marked `failed` while earlier stages are `completed` and later ones `pending`, each of the four stage indices maps to the right failing step, the raw FFmpeg command + log survive verbatim into the copyable report, and a failed job still promotes the next queued job.

@@ -7,14 +7,97 @@ import '../../models/srt_models.dart';
 import '../../prompts/khmer_dubbing_prompt.dart';
 import 'srt_parser.dart';
 
+/// Why a Gemini call failed, so callers can decide between retrying, rotating
+/// the API key, or giving up.
+enum GeminiFailureKind {
+  /// Quota/RPM exhausted (HTTP 429 / RESOURCE_EXHAUSTED). A different key from
+  /// the pool will usually succeed.
+  rateLimited,
+
+  /// 5xx / UNAVAILABLE — the request never reached a healthy backend.
+  /// Retrying the *same* key is worthwhile.
+  transientServer,
+
+  /// The key was rejected (API_KEY_INVALID). Retrying it is pointless, but
+  /// another key from the pool may work.
+  invalidKey,
+
+  /// Region blocked, malformed request, SDK bug, empty response, etc.
+  /// Retrying will not help.
+  fatal,
+}
+
 /// Raised when the Gemini request fails or returns nothing usable.
 class GeminiTranslationException implements Exception {
   final String message;
 
-  const GeminiTranslationException(this.message);
+  /// Raw SDK error body, kept for the copy-to-clipboard report.
+  final String details;
+
+  final GeminiFailureKind kind;
+
+  const GeminiTranslationException(
+    this.message, {
+    this.details = '',
+    this.kind = GeminiFailureKind.fatal,
+  });
+
+  bool get isRateLimited => kind == GeminiFailureKind.rateLimited;
+  bool get isTransient => kind == GeminiFailureKind.transientServer;
+  bool get isInvalidKey => kind == GeminiFailureKind.invalidKey;
+
+  /// Retrying with the same key could plausibly succeed.
+  bool get isRetryable =>
+      kind == GeminiFailureKind.rateLimited ||
+      kind == GeminiFailureKind.transientServer ||
+      kind == GeminiFailureKind.invalidKey;
 
   @override
   String toString() => 'Gemini translation failed: $message';
+}
+
+/// Classifies an SDK exception into a [GeminiFailureKind].
+///
+/// `google_generative_ai` 0.4.x exposes no status code: 5xx responses arrive
+/// as a base `GenerativeAIException` whose *message* embeds
+/// `Server Error [<code>]`, while 4xx bodies are routed through `parseError`,
+/// which maps everything except an invalid key to `ServerException`. Rate
+/// limits therefore have to be detected from the message text.
+GeminiFailureKind classifyGeminiError(Object error) {
+  if (error is InvalidApiKey) return GeminiFailureKind.invalidKey;
+  if (error is UnsupportedUserLocation) return GeminiFailureKind.fatal;
+  if (error is GenerativeAISdkException) return GeminiFailureKind.fatal;
+
+  final text = (error is GenerativeAIException ? error.message : error.toString())
+      .toLowerCase();
+
+  // Rate limit wins over the generic server bucket: a 429 also surfaces as
+  // ServerException, but it needs a *different key*, not the same one again.
+  if (text.contains('429') ||
+      text.contains('resource_exhausted') ||
+      text.contains('rate limit') ||
+      text.contains('ratelimit') ||
+      text.contains('quota exceeded') ||
+      text.contains('too many requests')) {
+    return GeminiFailureKind.rateLimited;
+  }
+
+  if (text.contains('server error') ||
+      text.contains('503') ||
+      text.contains('502') ||
+      text.contains('504') ||
+      text.contains('500') ||
+      text.contains('unavailable') ||
+      text.contains('deadline exceeded') ||
+      text.contains('internal error')) {
+    return GeminiFailureKind.transientServer;
+  }
+
+  // `ServerException` is the SDK's catch-all for unrecognised 4xx bodies;
+  // those are worth one more try before giving up.
+  if (error is ServerException) return GeminiFailureKind.transientServer;
+
+  return GeminiFailureKind.fatal;
 }
 
 /// STEP 2 — Transcribes and translates an audio track into Khmer SRT cues.
@@ -106,7 +189,13 @@ class GeminiTranslationService {
     try {
       response = await model.generateContent([content]);
     } on Exception catch (e) {
-      throw GeminiTranslationException(_describe(e));
+      // Keep the classification so the orchestrator can retry transient
+      // failures and rotate keys on 429, instead of failing the whole job.
+      throw GeminiTranslationException(
+        _describe(e),
+        details: _rawDetailsOf(e),
+        kind: classifyGeminiError(e),
+      );
     }
 
     final text = response.text;
@@ -149,4 +238,7 @@ class GeminiTranslationService {
     }
     return error.toString();
   }
+
+  /// Unfiltered SDK text for the copy-to-clipboard diagnostic.
+  String _rawDetailsOf(Exception error) => error.toString();
 }

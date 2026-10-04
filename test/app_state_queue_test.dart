@@ -7,6 +7,9 @@ import 'package:khmer_dubber_mobile/services/app_state.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/dubbing_pipeline.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/ffmpeg_dubbing_service.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/gemini_translation_service.dart';
+import 'package:khmer_dubber_mobile/services/dubbing/tts_segment_service.dart';
+import 'package:khmer_dubber_mobile/services/dubbing/workspace_cleanup_service.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Stands in for the real pipeline so queue mechanics can be tested without
@@ -30,6 +33,8 @@ class FakePipeline extends DubbingPipeline {
     double pitchHz = 0.0,
     double speedMultiplier = 1.0,
     double duckingPercent = -25.0,
+    int startStage = 0,
+    String? Function()? onRateLimited,
     void Function(DubbingProgress progress)? onProgress,
   }) async {
     for (final stage in steps) {
@@ -81,6 +86,8 @@ class FailingPipeline extends DubbingPipeline {
     double pitchHz = 0.0,
     double speedMultiplier = 1.0,
     double duckingPercent = -25.0,
+    int startStage = 0,
+    String? Function()? onRateLimited,
     void Function(DubbingProgress progress)? onProgress,
   }) async {
     // Report progress for every stage up to and including the failing one.
@@ -104,6 +111,66 @@ class FailingPipeline extends DubbingPipeline {
   @override
   Future<void> cancel() async {
     if (gate != null && !gate!.isCompleted) gate!.complete();
+  }
+}
+
+/// Arguments handed to a [_CallbackPipeline] body.
+class FakeRun {
+  final int startStage;
+  final String apiKey;
+  final String? Function()? onRateLimited;
+  final void Function(DubbingProgress progress)? onProgress;
+
+  const FakeRun({
+    required this.startStage,
+    required this.apiKey,
+    required this.onRateLimited,
+    required this.onProgress,
+  });
+}
+
+/// A pipeline whose behaviour is decided entirely by the test closure.
+///
+/// Returning `null` completes the run; throwing fails it. This keeps
+/// per-attempt state (counters, recorded args) in the test rather than on the
+/// fake, which matters because `AppState` builds a *new* pipeline per attempt.
+class _CallbackPipeline extends DubbingPipeline {
+  _CallbackPipeline(this.body);
+
+  /// Receives the run arguments and returns an error to throw, or `null`.
+  final Object? Function(FakeRun run) body;
+
+  String? workDir = '';
+
+  @override
+  Future<DubbingResult> run({
+    required String videoPath,
+    required String workDir,
+    required VoiceProfile voice,
+    required String apiKey,
+    required String modelDisplayName,
+    double pitchHz = 0.0,
+    double speedMultiplier = 1.0,
+    double duckingPercent = -25.0,
+    int startStage = 0,
+    String? Function()? onRateLimited,
+    void Function(DubbingProgress progress)? onProgress,
+  }) async {
+    this.workDir = workDir;
+
+    final error = body(FakeRun(
+      startStage: startStage,
+      apiKey: apiKey,
+      onRateLimited: onRateLimited,
+      onProgress: onProgress,
+    ));
+    if (error != null) throw error;
+
+    return DubbingResult(
+      outputVideoPath: '$workDir/out.mp4',
+      srtContent: '',
+      entries: const [],
+    );
   }
 }
 
@@ -613,6 +680,327 @@ group('Player screen selection', () {
       expect(state.saveGalleryError, contains('no longer exists'));
 
       state.dispose();
+    });
+  });
+
+    group('Gemini key rotation on rate limit', () {
+    test('rotateKey sidelines the throttled key and promotes another', () {
+      final state = AppState();
+      state.addApiKey('A', 'token-a');
+      state.addApiKey('B', 'token-b');
+      state.addApiKey('C', 'token-c');
+
+      // Failover Priority makes the pick deterministic for this assertion.
+      state.setKeyRotationStrategy('Failover Priority');
+      final current = state.nextApiKey()!;
+
+      final promoted = state.rotateKey(current.id);
+      expect(promoted, isNotNull, reason: 'a spare key must be handed back');
+      expect(promoted, isNot(current.token));
+
+      // The throttled key is no longer usable...
+      expect(
+        state.usableApiKeys.where((k) => k.id == current.id),
+        isEmpty,
+        reason: 'rate-limited key is parked',
+      );
+      // ...and the promoted key is now the default for future jobs.
+      expect(state.preferredKeyId, isNotNull);
+      expect(state.nextApiKey()!.id, state.preferredKeyId);
+
+      state.dispose();
+    });
+
+    test('rotateKey returns null when no other key is available', () {
+      final state = AppState();
+      state.addApiKey('Solo', 'token-solo');
+
+      final only = state.nextApiKey()!;
+      expect(state.rotateKey(only.id), isNull,
+          reason: 'pool exhausted must not loop on the same key');
+      expect(state.usableApiKeys, isEmpty);
+
+      state.dispose();
+    });
+
+    test('a throttled key becomes usable again after its cooldown', () async {
+      final state = AppState();
+      state.addApiKey('A', 'token-a');
+      state.addApiKey('B', 'token-b');
+
+      final a = state.nextApiKey()!;
+      state.rotateKey(a.id, cooldown: const Duration(milliseconds: 40));
+      expect(state.usableApiKeys.any((k) => k.id == a.id), isFalse);
+
+      // Cooldowns are wall-clock based, so this needs real time to elapse
+      // (a `tester.pump` would only advance the fake timer, not `DateTime`).
+      await Future<void>.delayed(const Duration(milliseconds: 90));
+
+      // Cooldown expiry restores the key instead of permanently banning it.
+      expect(state.usableApiKeys.any((k) => k.id == a.id), isTrue);
+      state.dispose();
+    });
+
+    test('the promoted key keeps serving until it is throttled itself', () {
+      final state = AppState();
+      state.addApiKey('A', 'token-a');
+      state.addApiKey('B', 'token-b');
+
+      final a = state.nextApiKey()!;
+      state.rotateKey(a.id);
+      final promotedId = state.preferredKeyId!;
+
+      // Repeated calls keep returning the promoted key.
+      expect(state.nextApiKey()!.id, promotedId);
+      expect(state.nextApiKey()!.id, promotedId);
+
+      state.dispose();
+    });
+  });
+
+  group('Retry a failed stage', () {
+    testWidgets('a retried job resumes at the failing stage index',
+        (tester) async {
+      // `pipelineFactory` builds a *new* pipeline per attempt, so the attempt
+      // counter has to live in the test closure rather than on the fake.
+      var attempts = 0;
+      final startStages = <int>[];
+
+      final state = AppState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      state.pipelineFactory = () => _CallbackPipeline((run) {
+            attempts++;
+            startStages.add(run.startStage);
+            if (attempts == 1) {
+              // The real pipeline reports progress per stage, which is what
+              // lets an unattributed error be pinned to the right step.
+              run.onProgress?.call(const DubbingProgress(
+                stageIndex: 1,
+                fraction: 0.2,
+                message: 'Transcribing and translating',
+              ));
+              return const GeminiTranslationException('boom');
+            }
+            return null;
+          });
+      await tester.pump();
+
+      enqueue(state, 'alpha');
+      await tester.pumpAndSettle();
+      expect(state.failedTasks.length, 1);
+      expect(state.failedTasks.single.failedStageIndex, 1);
+      expect(startStages.single, 0,
+          reason: 'first attempt starts from the top');
+
+      final retried = state.retryFailedStage(state.failedTasks.single.id);
+      expect(retried, isTrue);
+      expect(state.failedTasks, isEmpty, reason: 'left the failed list');
+
+      await tester.pumpAndSettle();
+
+      expect(startStages, hasLength(2));
+      expect(startStages.last, 1,
+          reason: 'resumes at the stage that failed, not from stage 1');
+      expect(state.completedTasks.length, 1,
+          reason: 'a successful retry lands in completed');
+
+      state.dispose();
+    });
+
+    test('retryFailedStage and removeFailedTask ignore unknown ids', () {
+      final state = AppState();
+      expect(state.retryFailedStage('nope'), isFalse);
+      expect(state.removeFailedTask('nope'), isFalse);
+      state.dispose();
+    });
+
+    testWidgets('removeFailedTask drops only the target job',
+        (tester) async {
+      final state = AppState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      var calls = 0;
+      state.pipelineFactory = () {
+        calls++;
+        // Fail both jobs, at different stages.
+        return FailingPipeline(calls == 1 ? 1 : 3, Exception('boom'));
+      };
+      await tester.pump();
+
+      enqueue(state, 'first');
+      enqueue(state, 'second');
+      await tester.pumpAndSettle();
+      expect(state.failedTasks.length, 2);
+
+      final target = state.failedTasks
+          .firstWhere((t) => t.videoTitle == 'first.mp4');
+
+      expect(state.removeFailedTask(target.id), isTrue);
+      expect(state.failedTasks.length, 1);
+      expect(state.failedTasks.single.videoTitle, 'second.mp4');
+
+      state.dispose();
+    });
+  });
+
+  group('Retry policies', () {
+    test('Gemini allows exactly 3 retries after the first attempt', () {
+      expect(maxGeminiAttempts - 1, 3,
+          reason: 'the brief asks for 3 retries on a 503');
+      expect(
+        geminiRetryDelays,
+        hasLength(maxGeminiAttempts - 1),
+        reason: 'one back-off slot per retry, none left unused',
+      );
+    });
+
+    test('TTS allows 5 retries starting at 1 second', () {
+      // The brief: wait 1s, retry; wait 2s, retry; up to 5 retries per entry.
+      expect(ttsRetryDelays, hasLength(5));
+      expect(ttsRetryDelays.first, const Duration(seconds: 1));
+      expect(ttsRetryDelays[1], const Duration(seconds: 2));
+      expect(maxTtsAttempts, ttsRetryDelays.length + 1);
+    });
+
+    test('Gemini errors are classified by cause', () {
+      // 429 / RESOURCE_EXHAUSTED needs a *different* key, not a retry.
+      expect(
+        classifyGeminiError(ServerException('429 RESOURCE_EXHAUSTED: quota')),
+        GeminiFailureKind.rateLimited,
+      );
+      expect(
+        classifyGeminiError(ServerException('Quota exceeded for quota metric')),
+        GeminiFailureKind.rateLimited,
+      );
+
+      // 5xx blips are worth retrying on the same key.
+      expect(
+        classifyGeminiError(
+          GenerativeAIException('Server Error [503]: backend down'),
+        ),
+        GeminiFailureKind.transientServer,
+      );
+      expect(
+        classifyGeminiError(InvalidApiKey('API key not valid')),
+        GeminiFailureKind.invalidKey,
+      );
+
+      // A blocked region can never be fixed by retrying.
+      expect(
+        classifyGeminiError(UnsupportedUserLocation()),
+        GeminiFailureKind.fatal,
+      );
+      expect(
+        classifyGeminiError(
+          GenerativeAISdkException('Unhandled response format'),
+        ),
+        GeminiFailureKind.fatal,
+      );
+    });
+
+    test('only retryable Gemini failures are marked retryable', () {
+      expect(
+        const GeminiTranslationException('x', kind: GeminiFailureKind.rateLimited)
+            .isRetryable,
+        isTrue,
+      );
+      expect(
+        const GeminiTranslationException(
+          'x',
+          kind: GeminiFailureKind.transientServer,
+        ).isRetryable,
+        isTrue,
+      );
+      expect(
+        const GeminiTranslationException('x', kind: GeminiFailureKind.fatal)
+            .isRetryable,
+        isFalse,
+      );
+    });
+
+    test('a TTS failure names the cue, voice and attempt count', () {
+      const error = TtsEntryException(
+        cueIndex: 12,
+        text: 'សូមស្វាគមន៍',
+        voiceId: 'km-KH-PisethNeural',
+        attempts: 6,
+        cause: 'socket closed',
+      );
+
+      expect(error.summary, contains('line 12'));
+      expect(error.details, contains('km-KH-PisethNeural'));
+      expect(error.details, contains('socket closed'));
+      expect(error.details, contains('Attempts:  6'));
+    });
+  });
+
+  group('Workspace cleanup on app reopen', () {
+    test('removes stale artifacts but keeps the work dir', () async {
+      final docs = Directory.systemTemp.createTempSync('cleanup_docs');
+      addTearDown(() {
+        if (docs.existsSync()) docs.deleteSync(recursive: true);
+      });
+
+      final workDir = Directory('${docs.path}/dubbing_jobs')..createSync();
+
+      // Simulate leftovers from a previous session.
+      final wav = File('${workDir.path}/clip.audio.wav')
+        ..writeAsBytesSync(List.filled(64, 1));
+      final srt = File('${workDir.path}/clip.khmer.srt')
+        ..writeAsStringSync('1\n');
+      final mp4 = File('${workDir.path}/clip_dubbed.mp4')
+        ..writeAsBytesSync(List.filled(32, 1));
+      final segments = Directory('${workDir.path}/clip_segments')..createSync();
+      File('${segments.path}/line_1.mp3').writeAsBytesSync(List.filled(16, 1));
+      final cache = File('${docs.path}/tts_cache_km-KH-PisethNeural.mp3')
+        ..writeAsBytesSync(List.filled(8, 1));
+      final keep = File('${docs.path}/unrelated.dat')..writeAsStringSync('keep');
+
+      final report = await WorkspaceCleanupService.cleanPreviousRun(
+        workDirOverride: docs.path,
+      );
+
+      expect(wav.existsSync(), isFalse);
+      expect(srt.existsSync(), isFalse);
+      expect(mp4.existsSync(), isFalse);
+      expect(segments.existsSync(), isFalse);
+      expect(cache.existsSync(), isFalse);
+
+      // The work dir itself survives so the next job can write straight away.
+      expect(workDir.existsSync(), isTrue);
+      // Files outside the managed folders are never touched.
+      expect(keep.existsSync(), isTrue);
+      expect(report.freedBytes, greaterThan(0));
+      expect(report.warnings, isEmpty);
+    });
+
+    test('a missing work dir is not an error', () async {
+      final docs = Directory.systemTemp.createTempSync('cleanup_empty');
+      addTearDown(() => docs.deleteSync(recursive: true));
+
+      final report = await WorkspaceCleanupService.cleanPreviousRun(
+        workDirOverride: docs.path,
+      );
+
+      expect(report.removedPaths, isEmpty);
+      expect(report.warnings, isEmpty);
+    });
+
+    test('reclaims the bytes of every deleted file', () async {
+      final docs = Directory.systemTemp.createTempSync('cleanup_bytes');
+      addTearDown(() => docs.deleteSync(recursive: true));
+
+      final workDir = Directory('${docs.path}/dubbing_jobs')..createSync();
+      File('${workDir.path}/a.wav').writeAsBytesSync(List.filled(100, 0));
+      File('${workDir.path}/b.srt').writeAsBytesSync(List.filled(50, 0));
+
+      final report = await WorkspaceCleanupService.cleanPreviousRun(
+        workDirOverride: docs.path,
+      );
+
+      expect(report.removedPaths.length, 2);
+      expect(report.freedBytes, 150);
     });
   });
 

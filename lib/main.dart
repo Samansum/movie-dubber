@@ -34,6 +34,10 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
   void initState() {
     super.initState();
     _state = AppState();
+    // Sweep the previous session's intermediates and renders. Nothing can
+    // reference them after a restart, and doing this early keeps the device
+    // from filling up with orphaned WAV/SRT/MP3/MP4 data.
+    _state.cleanupPreviousRun();
   }
 
   @override

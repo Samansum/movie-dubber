@@ -4,7 +4,21 @@ import '../../models/dub_models.dart';
 import '../../models/srt_models.dart';
 import 'ffmpeg_dubbing_service.dart';
 import 'gemini_translation_service.dart';
+import 'srt_parser.dart';
 import 'tts_segment_service.dart';
+
+/// Back-off applied between Gemini attempts on the same key.
+const List<Duration> geminiRetryDelays = [
+  Duration(seconds: 2),
+  Duration(seconds: 4),
+  Duration(seconds: 8),
+];
+
+/// Three *retries* after the initial attempt, for transient 5xx/503 blips.
+///
+/// Kept as a literal because Dart forbids reading `List.length` inside a `const`
+/// expression; a unit test pins it to `geminiRetryDelays.length + 1`.
+const int maxGeminiAttempts = 4;
 
 /// Progress of a running [DubbingPipeline] job.
 class DubbingProgress {
@@ -111,6 +125,11 @@ class DubbingPipeline {
   }
 
   /// Executes the full pipeline and returns the rendered video path.
+  ///
+  /// Set [startStage] to resume from a previously failed stage: every earlier
+  /// stage is skipped and its artifacts are reused from [workDir]. This is what
+  /// powers the "Retry stage" button on a failed job — re-running the TTS stage
+  /// does not re-extract audio or re-bill Gemini.
   Future<DubbingResult> run({
     required String videoPath,
     required String workDir,
@@ -120,6 +139,8 @@ class DubbingPipeline {
     double pitchHz = 0.0,
     double speedMultiplier = 1.0,
     double duckingPercent = 0.25,
+    int startStage = 0,
+    String? Function()? onRateLimited,
     void Function(DubbingProgress progress)? onProgress,
   }) async {
     _cancelled = false;
@@ -147,43 +168,57 @@ class DubbingPipeline {
     final segmentsDir = '${work.path}/${baseName}_segments';
     final outputPath = '${work.path}/${baseName}_dubbed.mp4';
 
-    // ---- Stage 1: Extract audio ------------------------------------------
-    onProgress?.call(const DubbingProgress(
-      stageIndex: 0,
-      fraction: 0.05,
-      message: 'Extracting 48kHz audio track',
-    ));
+    // Resuming reuses artifacts from the previous attempt.
+    final resuming = startStage > 0;
 
-    await _runStage(
-      stageIndex: 0,
-      body: () => _ffmpeg.extractAudio(videoPath, audioPath),
-    );
+    // ---- Stage 1: Extract audio ------------------------------------------
+    if (startStage <= 0) {
+      onProgress?.call(const DubbingProgress(
+        stageIndex: 0,
+        fraction: 0.05,
+        message: 'Extracting 48kHz audio track',
+      ));
+
+      await _runStage(
+        stageIndex: 0,
+        body: () => _ffmpeg.extractAudio(videoPath, audioPath),
+      );
+    }
 
     // ---- Stage 2: Transcribe and translate -------------------------------
-    onProgress?.call(DubbingProgress(
-      stageIndex: 1,
-      fraction: 0.2,
-      message: 'Transcribing and translating via $modelDisplayName',
-    ));
+    late final List<SrtEntry> entries;
 
-    final entries = await _runStage(
-      stageIndex: 1,
-      body: () => _gemini.transcribeAndTranslateToEntries(
-        audioPath: audioPath,
-        apiKey: apiKey,
-        modelDisplayName: modelDisplayName,
-      ),
-    );
+    if (startStage <= 1) {
+      onProgress?.call(DubbingProgress(
+        stageIndex: 1,
+        fraction: 0.2,
+        message: 'Transcribing and translating via $modelDisplayName',
+      ));
 
-    // Persist the cleaned SRT so it can be inspected and reused.
-    final srtContent = _toSrtDocument(entries);
-    await File(srtPath).writeAsString(srtContent, flush: true);
+      entries = await _runStage(
+        stageIndex: 1,
+        body: () => _transcribeWithRetry(
+          audioPath: audioPath,
+          apiKey: apiKey,
+          modelDisplayName: modelDisplayName,
+          onRateLimited: onRateLimited,
+          onProgress: onProgress,
+        ),
+      );
 
-    onProgress?.call(DubbingProgress(
-      stageIndex: 1,
-      fraction: 0.45,
-      message: 'Gemini returned ${entries.length} Khmer subtitle cues',
-    ));
+      // Persist the cleaned SRT so it can be inspected and reused. A later
+      // "Retry stage" re-parses this file instead of paying for Gemini again.
+      await File(srtPath).writeAsString(_toSrtDocument(entries), flush: true);
+
+      onProgress?.call(DubbingProgress(
+        stageIndex: 1,
+        fraction: 0.45,
+        message: 'Gemini returned ${entries.length} Khmer subtitle cues',
+      ));
+    } else {
+      // Resuming past Gemini: rebuild the cue list from the saved SRT.
+      entries = _loadEntriesFromSrt(srtPath);
+    }
 
     // ---- Stage 3: Generate audio -----------------------------------------
     final segments = await _runStage(
@@ -195,6 +230,9 @@ class DubbingPipeline {
         durationProbe: _ffmpeg.probeDuration,
         pitchHz: pitchHz,
         speedMultiplier: speedMultiplier,
+        // On a resume, cues already rendered by the previous attempt are
+        // measured and reused, so only the failed lines are synthesized again.
+        reuseExisting: resuming,
         // Lets the worker pool bail out between lines when the user terminates
         // the job, instead of rendering every remaining cue.
         isCancelled: () => _cancelled,
@@ -210,35 +248,160 @@ class DubbingPipeline {
     );
 
     // ---- Stage 4: Build video --------------------------------------------
-    onProgress?.call(const DubbingProgress(
-      stageIndex: 3,
-      fraction: 0.9,
-      message: 'Remuxing dubbed audio onto the source timeline',
-    ));
+    if (startStage <= 3) {
+      onProgress?.call(const DubbingProgress(
+        stageIndex: 3,
+        fraction: 0.9,
+        message: 'Remuxing dubbed audio onto the source timeline',
+      ));
 
-    await _runStage(
-      stageIndex: 3,
-      body: () => _ffmpeg.mixAndDubVideo(
-        originalVideoPath: videoPath,
-        segments: segments,
-        outputVideoPath: outputPath,
-        keepBackgroundAudio: false,
-        backgroundGain: duckingPercent,
-        workDir: workDir,
-      ),
-    );
+      await _runStage(
+        stageIndex: 3,
+        body: () => _ffmpeg.mixAndDubVideo(
+          originalVideoPath: videoPath,
+          segments: segments,
+          outputVideoPath: outputPath,
+          keepBackgroundAudio: false,
+          backgroundGain: duckingPercent,
+          workDir: workDir,
+        ),
+      );
 
-    onProgress?.call(const DubbingProgress(
-      stageIndex: 3,
-      fraction: 1.0,
-      message: 'Dubbed video ready',
-    ));
+      onProgress?.call(const DubbingProgress(
+        stageIndex: 3,
+        fraction: 1.0,
+        message: 'Dubbed video ready',
+      ));
+    }
 
     return DubbingResult(
       outputVideoPath: outputPath,
-      srtContent: srtContent,
+      srtContent: _srtContentOf(srtPath, entries),
       entries: entries,
     );
+  }
+
+  /// Runs stage 2 with a bounded retry budget.
+  ///
+  /// Transient failures (5xx/503, network blips) are retried on the *same* key
+  /// with a growing back-off. A rate limit or a rejected key asks
+  /// [onRateLimited] for a different key and immediately retries with it — if
+  /// no alternative key exists the error is rethrown so the job fails loudly
+  /// instead of looping.
+  Future<List<SrtEntry>> _transcribeWithRetry({
+    required String audioPath,
+    required String apiKey,
+    required String modelDisplayName,
+    String? Function()? onRateLimited,
+    void Function(DubbingProgress progress)? onProgress,
+  }) async {
+    var currentKey = apiKey;
+    // Counts only same-key retries. A key rotation starts a fresh budget,
+    // because the next key has not been tried yet.
+    var transientAttempts = 0;
+
+    while (true) {
+      if (_cancelled) throw const FfmpegCancelledException();
+
+      try {
+        return await _gemini.transcribeAndTranslateToEntries(
+          audioPath: audioPath,
+          apiKey: currentKey,
+          modelDisplayName: modelDisplayName,
+        );
+      } on FfmpegCancelledException {
+        rethrow;
+      } catch (e) {
+        final geminiError = e is GeminiTranslationException ? e : null;
+
+        // Rate limited / key rejected: swap keys and retry right away.
+        if (geminiError != null &&
+            (geminiError.isRateLimited || geminiError.isInvalidKey)) {
+          final nextKey = onRateLimited?.call();
+          onProgress?.call(DubbingProgress(
+            stageIndex: 1,
+            fraction: 0.2,
+            message: geminiError.isInvalidKey
+                ? 'Gemini key rejected — switching to the next key'
+                : 'Gemini rate limit reached — switching to the next key',
+          ));
+
+          if (nextKey == null || nextKey == currentKey) {
+            // Pool exhausted: surface the real reason rather than retrying a
+            // key we know is throttled.
+            Error.throwWithStackTrace(
+              GeminiTranslationException(
+                nextKey == null
+                    ? '${geminiError.message} '
+                        '(no further API key available in the pool)'
+                    : geminiError.message,
+                details: geminiError.details,
+                kind: geminiError.kind,
+              ),
+              StackTrace.current,
+            );
+          }
+
+          currentKey = nextKey;
+          // A brand new key deserves the full retry budget again.
+          transientAttempts = 0;
+          continue;
+        }
+
+        // Fatal error (bad region, malformed audio, empty response) or the
+        // budget is spent: retrying cannot help.
+        if (geminiError == null ||
+            !geminiError.isRetryable ||
+            transientAttempts >= maxGeminiAttempts - 1) {
+          rethrow;
+        }
+
+        // Transient server error: wait, then retry the same key.
+        final delay = geminiRetryDelays[transientAttempts];
+        onProgress?.call(DubbingProgress(
+          stageIndex: 1,
+          fraction: 0.2,
+          message: 'Gemini unavailable — retrying in ${delay.inSeconds}s '
+              '(retry ${transientAttempts + 1}/${maxGeminiAttempts - 1})',
+        ));
+
+        await Future.delayed(delay, () => _cancelled);
+        if (_cancelled) throw const FfmpegCancelledException();
+        transientAttempts++;
+      }
+    }
+  }
+
+  /// Re-parses the persisted SRT so a stage retry can skip Gemini entirely.
+  List<SrtEntry> _loadEntriesFromSrt(String srtPath) {
+    final file = File(srtPath);
+    if (!file.existsSync()) {
+      throw DubbingConfigurationException(
+        'Cannot resume: the saved subtitle file is missing.\n$srtPath',
+      );
+    }
+
+    final entries = SrtParser.parse(file.readAsStringSync());
+    if (entries.isEmpty) {
+      throw DubbingConfigurationException(
+        'Cannot resume: the saved subtitle file contained no usable cues.\n'
+        '$srtPath',
+      );
+    }
+    return entries;
+  }
+
+  /// Reads the SRT back from disk, falling back to a freshly rendered document.
+  String _srtContentOf(String srtPath, List<SrtEntry> entries) {
+    final file = File(srtPath);
+    if (file.existsSync()) {
+      try {
+        return file.readAsStringSync();
+      } catch (_) {
+        // Fall through to the in-memory rebuild.
+      }
+    }
+    return _toSrtDocument(entries);
   }
 
   /// Runs one stage and tags any failure with its stage index.

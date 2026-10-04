@@ -293,6 +293,13 @@ class DubbingTask {
   /// `null` while the job is healthy (queued, running or completed).
   final DubbingError? error;
 
+  /// Zero-based stage this job should (re)start from.
+  ///
+  /// `null`/0 for a fresh job. Set when the user taps "Retry stage" on a failed
+  /// job so the pipeline resumes at the broken step instead of repeating the
+  /// stages that already succeeded.
+  final int? resumeFromStage;
+
   const DubbingTask({
     required this.id,
     required this.videoTitle,
@@ -308,6 +315,7 @@ class DubbingTask {
     required this.stages,
     required this.liveStatusLog,
     this.error,
+    this.resumeFromStage,
   });
 
   /// Whether this job stopped on an error. Used by the queue UI to keep failed
@@ -330,6 +338,7 @@ class DubbingTask {
     String? liveStatusLog,
     String? outputPath,
     DubbingError? error,
+    int? resumeFromStage,
   }) {
     return DubbingTask(
       id: id,
@@ -346,6 +355,7 @@ class DubbingTask {
       stages: stages ?? this.stages,
       liveStatusLog: liveStatusLog ?? this.liveStatusLog,
       error: error ?? this.error,
+      resumeFromStage: resumeFromStage ?? this.resumeFromStage,
     );
   }
 }

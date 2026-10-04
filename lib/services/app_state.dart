@@ -11,6 +11,8 @@ import '../models/dub_models.dart';
 import 'dubbing/dubbing_pipeline.dart';
 import 'dubbing/ffmpeg_dubbing_service.dart';
 import 'dubbing/gemini_translation_service.dart';
+import 'dubbing/tts_segment_service.dart';
+import 'dubbing/workspace_cleanup_service.dart';
 
 class AppState extends ChangeNotifier {
   SharedPreferences? _prefs;
@@ -176,6 +178,35 @@ class AppState extends ChangeNotifier {
     loadSettingsFromStorage();
   }
 
+  /// Deletes artifacts left over from the previous session.
+  ///
+  /// The queue lives in memory only, so nothing can reference last run's
+  /// renders once the app restarts. Sweeping them here stops the extracted
+  /// audio, SRTs, per-cue MP3s and rendered videos from piling up on the
+  /// user's device. Fire-and-forget: cleanup must never block the first frame.
+  Future<WorkspaceCleanupReport> cleanupPreviousRun() async {
+    final report = await WorkspaceCleanupService.cleanPreviousRun(
+      workDirOverride: workDirOverride,
+    );
+    if (_disposed) return report;
+
+    _lastCleanupReport = report;
+    if (!report.isEmpty) {
+      debugPrint(
+        '[AppState] Startup cleanup removed ${report.removedPaths.length} '
+        'artifact(s), freed ${report.freedBytes} bytes.',
+      );
+      for (final warning in report.warnings) {
+        debugPrint('[AppState] Cleanup warning: $warning');
+      }
+    }
+    return report;
+  }
+
+  /// Report from the most recent [cleanupPreviousRun], for diagnostics.
+  WorkspaceCleanupReport? _lastCleanupReport;
+  WorkspaceCleanupReport? get lastCleanupReport => _lastCleanupReport;
+
   Future<void> loadSettingsFromStorage() async {
     try {
       _prefs = await SharedPreferences.getInstance();
@@ -221,6 +252,10 @@ class AppState extends ChangeNotifier {
           }
         }
       }
+
+      // Rate-limit cooldowns do not survive a restart, so any key left parked
+      // by a previous session becomes usable again.
+      reviveParkedKeys();
 
       notifyListeners();
     } catch (e) {
@@ -544,6 +579,12 @@ class AppState extends ChangeNotifier {
         pitchHz: pitch,
         speedMultiplier: speed,
         duckingPercent: ducking,
+        // A failed job can be resumed at the stage that broke instead of
+        // re-running every stage from scratch.
+        startStage: task.resumeFromStage ?? 0,
+        // Called by stage 2 when Gemini rate-limits us: park the throttled
+        // key and hand back a different one to retry with.
+        onRateLimited: () => rotateKey(key.id),
         onProgress: _applyProgress,
       );
 
@@ -580,6 +621,57 @@ class AppState extends ChangeNotifier {
       if (pipeline.isCancelled) return;
       _failActiveTask(task, _describeError(e, stackTrace));
     }
+  }
+
+  /// Re-queues a failed job starting at the stage that failed.
+  ///
+  /// Stages before [resumeFromStage] already produced their artifacts, so the
+  /// pipeline reuses them: a TTS retry skips Gemini entirely and only
+  /// re-synthesizes the lines that failed. Returns `false` when the job is not
+  /// in the failed list (e.g. it was already removed).
+  bool retryFailedStage(String taskId, {int? fromStage}) {
+    final index = _failedTasks.indexWhere((task) => task.id == taskId);
+    if (index == -1) return false;
+
+    final failed = _failedTasks.removeAt(index);
+    final resumeFrom = fromStage ?? failed.failedStageIndex ?? 0;
+
+    // The job rejoins the queue; it only starts once a slot frees up.
+    final requeued = failed.copyWith(
+      isProcessing: false,
+      isQueued: true,
+      isCompleted: false,
+      progress: 0.0,
+      error: null,
+      resumeFromStage: resumeFrom,
+      stages: _buildStages(
+        voice: failed.voiceProfile,
+        activeStageIndex: -1,
+      ),
+      liveStatusLog:
+          'Queued to retry from ${DubbingStageCatalog.titleFor(resumeFrom)}',
+    );
+
+    if (_activeTask == null || !_activeTask!.isProcessing) {
+      _activeTask = requeued;
+      _runActiveTask(requeued);
+    } else {
+      _queuedTasks.add(requeued);
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Removes a failed job from the queue screen.
+  ///
+  /// Returns `false` when no failed job carries [taskId].
+  bool removeFailedTask(String taskId) {
+    final before = _failedTasks.length;
+    _failedTasks.removeWhere((task) => task.id == taskId);
+    if (_failedTasks.length == before) return false;
+    notifyListeners();
+    return true;
   }
 
   /// Frees the single pipeline slot so the next queued job can start.
@@ -680,6 +772,7 @@ class AppState extends ChangeNotifier {
   String _shortMessage(Object error) {
     if (error is DubbingConfigurationException) return error.message;
     if (error is GeminiTranslationException) return error.message;
+    if (error is TtsEntryException) return error.summary;
     if (error is FfmpegException) {
       final logs = error.logs;
       final tail = (logs == null || logs.isEmpty) ? '' : ': ${logs.trim()}';
@@ -691,7 +784,12 @@ class AppState extends ChangeNotifier {
   /// Full, unfiltered error body — this is what the copy button exposes.
   String _rawDetails(Object error) {
     if (error is DubbingConfigurationException) return error.message;
-    if (error is GeminiTranslationException) return error.message;
+    if (error is GeminiTranslationException) {
+      // `details` carries the untouched SDK response body.
+      return error.details.isEmpty ? error.message : error.details;
+    }
+    // Names the cue, voice, attempt count and the last underlying error.
+    if (error is TtsEntryException) return error.details;
 
     if (error is FfmpegException) {
       // Keep the command *and* the raw log: the command identifies which of
@@ -837,10 +935,29 @@ class AppState extends ChangeNotifier {
   /// Key pool entries that can actually be used for an API call.
   ///
   /// Keys saved before raw tokens were persisted have an empty
-  /// [ApiKeyItem.token] and are skipped, as are ones flagged as cooling down.
+  /// [ApiKeyItem.token] and are skipped, as are ones flagged as cooling down
+  /// or still inside their cooldown window.
   List<ApiKeyItem> get usableApiKeys => _apiKeys
-      .where((key) => key.token.isNotEmpty && key.status != 'Cooldown')
+      .where((key) =>
+          key.token.isNotEmpty &&
+          key.status != 'Cooldown' &&
+          !_isCoolingDown(key.id))
       .toList(growable: false);
+
+  /// How long a rate-limited key stays sidelined before it is usable again.
+  static const Duration _keyCooldown = Duration(seconds: 60);
+
+  /// Key id -> the moment its cooldown expires.
+  final Map<String, DateTime> _keyCooldownUntil = {};
+
+  /// Key promoted by the last rate-limit rotation. It keeps serving requests
+  /// until it hits its own limit.
+  String? _preferredKeyId;
+
+  bool _isCoolingDown(String keyId) {
+    final until = _keyCooldownUntil[keyId];
+    return until != null && until.isAfter(DateTime.now());
+  }
 
   /// Injects a key that has no raw token, mimicking a record persisted before
   /// real tokens were stored. Used by tests to cover the migration path.
@@ -864,9 +981,20 @@ class AppState extends ChangeNotifier {
 
   /// Returns the next API key according to [_keyRotationStrategy], or `null`
   /// when the pool holds no usable key.
+  ///
+  /// Once [rotateKey] promotes a key after a rate limit, that key is returned
+  /// for every subsequent job until it hits its own limit — see
+  /// [_preferredKeyId].
   ApiKeyItem? nextApiKey() {
     final pool = usableApiKeys;
     if (pool.isEmpty) return null;
+
+    // A key promoted by a previous rate-limit rotation keeps serving requests
+    // until it is throttled itself.
+    if (_preferredKeyId != null) {
+      final preferred = pool.where((key) => key.id == _preferredKeyId);
+      if (preferred.isNotEmpty) return preferred.first;
+    }
 
     switch (_keyRotationStrategy) {
       case 'Round-Robin':
@@ -885,6 +1013,80 @@ class AppState extends ChangeNotifier {
         final sorted = [...pool]
           ..sort((a, b) => a.rpmUsage.compareTo(b.rpmUsage));
         return sorted.first;
+    }
+  }
+
+  /// Marks [keyId] as throttled and promotes the next usable key to serve
+  /// subsequent requests.
+  ///
+  /// Returns the newly promoted key's raw token, or `null` when the pool has no
+  /// other usable key left. The throttled key becomes available again after
+  /// [cooldown] expires, so a long job can keep going once the RPM window rolls
+  /// over.
+  String? rotateKey(String keyId, {Duration cooldown = _keyCooldown}) {
+    // The cooldown is tracked purely in memory. Persisting a 'Cooldown' status
+    // would permanently disable the key, because `usableApiKeys` has no way to
+    // tell that the window has rolled over after an app restart.
+    _keyCooldownUntil[keyId] = DateTime.now().add(cooldown);
+
+    // The outgoing key is no longer the default.
+    if (_preferredKeyId == keyId) _preferredKeyId = null;
+
+    final next = usableApiKeys
+        .where((key) => key.id != keyId)
+        .fold<ApiKeyItem?>(null, (best, key) {
+      if (best == null) return key;
+      // Prefer the least-used key so the pool spreads load.
+      return key.rpmUsage < best.rpmUsage ? key : best;
+    });
+
+    if (next == null) return null;
+
+    _preferredKeyId = next.id;
+    // A promoted key must not be left sidelined from an earlier rotation.
+    _keyCooldownUntil.remove(next.id);
+    notifyListeners();
+    return next.token;
+  }
+
+  /// Id of the key currently preferred after a rate-limit rotation.
+  String? get preferredKeyId => _preferredKeyId;
+
+  /// Key ids that are still inside their cooldown window.
+  List<String> get coolingDownKeyIds => _keyCooldownUntil.entries
+      .where((entry) => entry.value.isAfter(DateTime.now()))
+      .map((entry) => entry.key)
+      .toList(growable: false);
+
+  /// Replaces [original] with an updated copy, optionally changing [status].
+  void _replaceKey(ApiKeyItem original, {String? status}) {
+    final index = _apiKeys.indexWhere((item) => item.id == original.id);
+    if (index == -1) return;
+
+    _apiKeys[index] = ApiKeyItem(
+      id: original.id,
+      alias: original.alias,
+      maskedToken: original.maskedToken,
+      token: original.token,
+      model: original.model,
+      status: status ?? original.status,
+      rpmUsage: original.rpmUsage,
+      rpmMax: original.rpmMax,
+      latencyMs: original.latencyMs,
+    );
+    _saveApiKeysToStorage();
+  }
+
+  /// Returns the persisted status to 'Active'.
+  ///
+  /// Cooldowns are deliberately session-scoped (see [rotateKey]), so a key that
+  /// was parked before the app was killed must become usable again on restart
+  /// rather than staying dead forever.
+  void reviveParkedKeys() {
+    final parked = _apiKeys.where((key) => key.status == 'Cooldown');
+    if (parked.isEmpty) return;
+    for (final key in parked.toList()) {
+      _replaceKey(key, status: 'Active');
     }
   }
 

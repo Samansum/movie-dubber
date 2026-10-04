@@ -6,9 +6,18 @@ import '../theme/app_typography.dart';
 class PipelineStageTile extends StatelessWidget {
   final PipelineStage stage;
 
+  /// When provided, a failed stage shows a "Retry" button that re-runs just
+  /// this step. `null` hides the button.
+  final VoidCallback? onRetry;
+
+  /// Whether the retry button accepts taps (e.g. a job is already running).
+  final bool retryEnabled;
+
   const PipelineStageTile({
     super.key,
     required this.stage,
+    this.onRetry,
+    this.retryEnabled = true,
   });
 
   @override
@@ -216,6 +225,40 @@ class PipelineStageTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Only a failed stage offers a retry, and only when the caller
+                // supplied a handler (nothing to retry for other statuses).
+                if (stage.status == StageStatus.failed && onRetry != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                          color: AppColors.primary.withOpacity(0.45),
+                        ),
+                        backgroundColor: AppColors.primary.withOpacity(0.08),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      onPressed: retryEnabled ? onRetry : null,
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: Text(
+                        'Retry this stage',
+                        style: AppTypography.labelSm.copyWith(
+                          color: retryEnabled
+                              ? AppColors.primary
+                              : AppColors.outline,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

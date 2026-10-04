@@ -681,10 +681,72 @@ class QueueScreen extends StatelessWidget {
                   const SizedBox(height: 10),
 
                   // Stage-by-stage breakdown: what finished, what stopped.
-                  ...item.stages
-                      .map((stage) => PipelineStageTile(stage: stage)),
+                  // The failed stage offers a retry that resumes from there.
+                  ...item.stages.asMap().entries.map((entry) {
+                    final stageIndex = entry.key;
+                    final stage = entry.value;
+                    return PipelineStageTile(
+                      stage: stage,
+                      retryEnabled: !state.isPipelineBusy,
+                      onRetry: stage.status == StageStatus.failed
+                          ? () => state.retryFailedStage(
+                                item.id,
+                                fromStage: stageIndex,
+                              )
+                          : null,
+                    );
+                  }),
 
                   const SizedBox(height: 4),
+
+                  // Remove the failed job from the screen, above the error.
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.onSurfaceVariant,
+                        side: BorderSide(color: AppColors.borderSubtle),
+                        backgroundColor: AppColors.surfaceContainer,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onPressed: () {
+                        final removed = state.removeFailedTask(item.id);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AppColors.surfaceContainerHighest,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            content: Text(
+                              removed
+                                  ? 'Removed "${item.videoTitle}" from the queue.'
+                                  : 'This job is no longer listed.',
+                              style: AppTypography.bodyMd.copyWith(
+                                color: removed
+                                    ? AppColors.onSurface
+                                    : AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: Text(
+                        'Remove',
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
 
                   // Raw error + copy button.
                   PipelineErrorCard(task: item),
