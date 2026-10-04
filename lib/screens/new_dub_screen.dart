@@ -745,7 +745,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: _showVideoSelectorModal,
+              onTap: _pickDeviceVideo,
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(20),
