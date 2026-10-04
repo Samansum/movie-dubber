@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
@@ -53,17 +55,25 @@ class FfmpegDubbingService {
   Future<void> _run(String command) async {
     if (_cancelled) throw const FfmpegCancelledException();
 
-    final session = await FFmpegKit.executeAsync(command);
+    final done = Completer<Session>();
+    final session = await FFmpegKit.executeAsync(
+      command,
+          (finished) {
+        if (!done.isCompleted) done.complete(finished);
+      },
+    );
     _activeSession = session;
 
-    final returnCode = await session.getReturnCode();
+    final finished = await done.future;
     _activeSession = null;
+
+    final returnCode = await finished.getReturnCode();
 
     if (_cancelled || ReturnCode.isCancel(returnCode)) {
       throw const FfmpegCancelledException();
     }
-    if (!ReturnCode.isSuccess(returnCode)) {
-      final logs = await session.getAllLogsAsString();
+    if (returnCode == null || !ReturnCode.isSuccess(returnCode)) {
+      final logs = await finished.getAllLogsAsString();
       throw FfmpegException(command, logs);
     }
   }
