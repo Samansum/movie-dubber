@@ -602,6 +602,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     videoTitle: videoFileName,
                     duration: asset.durationText,
                     fileSpecs: asset.fileSpecs,
+                    videoPath: asset.filePath,
                   );
 
                   // The clip now belongs to the queue, so drop it from the form

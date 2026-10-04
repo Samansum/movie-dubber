@@ -39,7 +39,12 @@ A mobile Flutter application engineered from the Google Stitch design (**Khmer V
 ### 2. Dubbing Queue (Video Processing)
 * **Real Data Only**: the queue starts completely empty. Every job is created from the video and voice model the user actually selected on the New Dub screen — no sample/placeholder jobs.
 * **Enqueue Behaviour**: tapping **Start AI Khmer Dubbing** pushes the job onto the queue. If the pipeline is idle it starts processing right away, otherwise the job is appended to the bottom of the queue and runs once the earlier jobs finish (FIFO).
-* **Dummy Pipeline Clock**: each job runs through the 4 stages below with a 10s timeout per stage (40s total). When a job finishes, the next queued job is picked up automatically until the queue is empty.
+* **Real 4-Stage Pipeline**: each job runs the actual dubbing pipeline (no dummy clock). Progress, the active stage and the console log are driven by real stage callbacks:
+  1. *Extract audio* — `ffmpeg_kit_flutter_new` demuxes a 48kHz mono PCM WAV.
+  2. *Transcribe and translate* — the audio is sent to the **Gemini model selected in Settings** (`google_generative_ai`) with the prompt in `lib/prompts/khmer_dubbing_prompt.dart`. The raw response is cleaned (`SrtParser`) then parsed into cues.
+  3. *Generate audio* — every cue is synthesized with **Edge TTS** through the existing `EdgeTtsService`, one MP3 per line. Auto-cast maps the Gemini-detected `[M]`/`[F]` tag to Piseth/Sreymom; an explicitly selected voice overrides it.
+  4. *Build video* — `atempo` time-stretches each line to fit its subtitle slot, `adelay` places it on the timeline, `amix` merges them and the result is muxed onto the source video with `-c:v copy`.
+* **Failure Handling**: jobs without a source file or a Gemini API key fail fast with a readable reason, and the queue always promotes the next job so it never deadlocks.
 * **Header & Live Pulse**: Real-time sync indicator (`SYNC LIVE`) with count summary pills for Active, Queued, and Completed jobs.
 * **Active Processing Card** (only rendered while a job is running):
   * Gradient progress bar with live percentage.

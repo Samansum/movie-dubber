@@ -174,6 +174,13 @@ class PipelineStage {
 class DubbingTask {
   final String id;
   final String videoTitle;
+
+  /// Absolute path of the source clip on disk. `null` for placeholder tasks.
+  final String? videoPath;
+
+  /// Absolute path of the rendered, dubbed video once the job completes.
+  final String? outputPath;
+
   final String duration;
   final String fileSpecs;
   final VoiceProfile voiceProfile;
@@ -187,6 +194,8 @@ class DubbingTask {
   const DubbingTask({
     required this.id,
     required this.videoTitle,
+    this.videoPath,
+    this.outputPath,
     required this.duration,
     required this.fileSpecs,
     required this.voiceProfile,
@@ -205,10 +214,13 @@ class DubbingTask {
     bool? isCompleted,
     List<PipelineStage>? stages,
     String? liveStatusLog,
+    String? outputPath,
   }) {
     return DubbingTask(
       id: id,
       videoTitle: videoTitle,
+      videoPath: videoPath,
+      outputPath: outputPath ?? this.outputPath,
       duration: duration,
       fileSpecs: fileSpecs,
       voiceProfile: voiceProfile,
@@ -225,7 +237,14 @@ class DubbingTask {
 class ApiKeyItem {
   final String id;
   final String alias;
+
+  /// Masked token shown in the UI (e.g. `AIzaSyD••••••`).
   final String maskedToken;
+
+  /// The real, unmasked token. Required to call the Gemini API — the masked
+  /// form is display-only and cannot be used for requests.
+  final String token;
+
   final String model;
   final String status; // 'Active', 'Standby', 'Cooldown'
   final int rpmUsage;
@@ -236,6 +255,7 @@ class ApiKeyItem {
     required this.id,
     required this.alias,
     required this.maskedToken,
+    required this.token,
     required this.model,
     required this.status,
     required this.rpmUsage,
@@ -248,6 +268,7 @@ class ApiKeyItem {
       'id': id,
       'alias': alias,
       'maskedToken': maskedToken,
+      'token': token,
       'model': model,
       'status': status,
       'rpmUsage': rpmUsage,
@@ -261,6 +282,9 @@ class ApiKeyItem {
       id: json['id'] as String? ?? '',
       alias: json['alias'] as String? ?? '',
       maskedToken: json['maskedToken'] as String? ?? '',
+      // Older records (saved before raw tokens were persisted) fall back to an
+      // empty token; `AppState.activeApiKey` filters those out.
+      token: json['token'] as String? ?? '',
       model: json['model'] as String? ?? '',
       status: json['status'] as String? ?? 'Active',
       rpmUsage: json['rpmUsage'] as int? ?? 0,

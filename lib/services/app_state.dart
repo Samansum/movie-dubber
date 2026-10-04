@@ -1,8 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/dub_models.dart';
+import 'dubbing/dubbing_pipeline.dart';
+import 'dubbing/ffmpeg_dubbing_service.dart';
+import 'dubbing/gemini_translation_service.dart';
 
 class AppState extends ChangeNotifier {
   SharedPreferences? _prefs;
@@ -77,12 +84,9 @@ class AppState extends ChangeNotifier {
   }
 
   // Tasks Management
-  // Dummy processing pipeline: 4 sequential stages, each taking an equal slice
-  // of the total processing time (10s * 4 = 40s per video).
+  // The four real pipeline stages. Their duration is now driven by the actual
+  // work (FFmpeg / Gemini / Edge TTS) rather than a fixed dummy clock.
   static const int _pipelineStageCount = 4;
-  static const Duration _stageDuration = Duration(seconds: 10);
-  static const Duration _totalProcessingDuration =
-      Duration(seconds: 10 * _pipelineStageCount);
 
   static const List<String> _stageTitles = [
     '1. Extract audio',
@@ -98,14 +102,18 @@ class AppState extends ChangeNotifier {
     Icons.movie_edit,
   ];
 
-  static const Duration _tickInterval = Duration(milliseconds: 200);
-
-  Timer? _progressTimer;
-  Duration _activeElapsed = Duration.zero;
-
   /// Monotonic counter guaranteeing unique task ids, since `DateTime.now()`
   /// can return the same timestamp for jobs enqueued in quick succession.
   int _taskIdCounter = 0;
+
+  /// Monotonic counter guaranteeing unique API key ids for the same reason.
+  int _apiKeyCounter = 0;
+
+  /// Cursor used by the "Round-Robin" key rotation strategy.
+  int _keyRoundRobinIndex = 0;
+
+  /// Guards notifications that may land after [dispose].
+  bool _disposed = false;
 
   /// The task currently being processed, or `null` when the pipeline is idle.
   DubbingTask? _activeTask;
@@ -202,6 +210,9 @@ class AppState extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
+      // Loading is fire-and-forget from the constructor, so it can land after
+      // the state was disposed (e.g. in tests). That is harmless.
+      if (_disposed) return;
       debugPrint('Error loading settings from storage: $e');
     }
   }
@@ -283,20 +294,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Console log line shown for the stage currently being processed.
-  String _stageLog(int stageIndex, DubbingTask task) {
-    switch (stageIndex) {
-      case 0:
-        return 'Extracting audio stream from ${task.videoTitle}...';
-      case 1:
-        return 'Translating dialogue to Khmer with $_selectedModel...';
-      case 2:
-        return 'Synthesizing Khmer speech with ${task.voiceProfile.id}...';
-      default:
-        return 'Remuxing final video with dubbed Khmer audio...';
-    }
-  }
-
   /// Creates a brand-new dubbing task for the currently selected voice model.
   ///
   /// [taskId] must be unique: it is what identifies the job in the queue (for
@@ -308,11 +305,13 @@ class AppState extends ChangeNotifier {
     required String duration,
     required String fileSpecs,
     required String taskId,
+    String? videoPath,
   }) {
     final voice = _selectedVoice;
     return DubbingTask(
       id: taskId,
       videoTitle: videoTitle,
+      videoPath: videoPath,
       duration: duration,
       fileSpecs: fileSpecs,
       voiceProfile: voice,
@@ -338,17 +337,19 @@ class AppState extends ChangeNotifier {
     required String videoTitle,
     required String duration,
     required String fileSpecs,
+    String? videoPath,
   }) {
     final task = _createTask(
       videoTitle: videoTitle,
       duration: duration,
       fileSpecs: fileSpecs,
       taskId: _generateTaskId(),
+      videoPath: videoPath,
     );
 
     if (_activeTask == null || !_activeTask!.isProcessing) {
       _activeTask = task;
-      _beginActiveProcessing();
+      _runActiveTask(task);
     } else {
       _queuedTasks.add(
         task.copyWith(
@@ -367,10 +368,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Aborts the running render and immediately starts the next queued task.
-  void terminateActiveProcess() {
-    _progressTimer?.cancel();
-    _progressTimer = null;
-    _activeElapsed = Duration.zero;
+  Future<void> terminateActiveProcess() async {
+    await _activePipeline?.cancel();
+    _releasePipelineSlot();
     _activeTask = null;
     _startNextQueuedTask();
     notifyListeners();
@@ -391,73 +391,174 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
-  void _beginActiveProcessing() {
-    _progressTimer?.cancel();
-    _activeElapsed = Duration.zero;
-    _tickProcessing();
-    _progressTimer = Timer.periodic(
-      _tickInterval,
-      (_) {
-        _activeElapsed += _tickInterval;
-        _tickProcessing();
-      },
-    );
+  // ---------------------------------------------------------------------------
+  // Real pipeline execution
+  // ---------------------------------------------------------------------------
+
+  /// Pipeline instance of the running job, used to cancel it on terminate.
+  DubbingPipeline? _activePipeline;
+
+  /// Overrides how the pipeline is built. Tests use this to run a fake
+  /// pipeline without touching FFmpeg, Gemini or Edge TTS.
+  @visibleForTesting
+  DubbingPipeline Function()? pipelineFactory;
+
+  /// Overrides the directory used for intermediate files. Tests point this at a
+  /// temp folder so no plugin channels are required.
+  @visibleForTesting
+  String? workDirOverride;
+
+  /// Guards against two pipeline runs overlapping (terminate racing completion).
+  bool _isRunningPipeline = false;
+
+  DubbingPipeline _createPipeline() =>
+      pipelineFactory?.call() ?? DubbingPipeline();
+
+  /// Directory that holds intermediate audio, SRT and rendered output.
+  Future<String> _resolveWorkDir() async {
+    final override = workDirOverride;
+    if (override != null) return override;
+
+    final dir = await getApplicationDocumentsDirectory();
+    final workDir = Directory('${dir.path}/dubbing_jobs');
+    if (!workDir.existsSync()) {
+      await workDir.create(recursive: true);
+    }
+    return workDir.path;
   }
 
-  void _tickProcessing() {
-    final task = _activeTask;
-    if (task == null || !task.isProcessing) return;
+  /// Runs the four real dubbing stages for [task] and reports progress.
+  Future<void> _runActiveTask(DubbingTask task) async {
+    if (_isRunningPipeline) return;
 
-    if (_activeElapsed >= _totalProcessingDuration) {
-      _completeActiveTask();
+    final videoPath = task.videoPath;
+    if (videoPath == null || videoPath.isEmpty) {
+      _failActiveTask(
+        task,
+        'No source file on disk — re-pick the video and try again.',
+      );
       return;
     }
 
-    var stageIndex =
-        _activeElapsed.inMilliseconds ~/ _stageDuration.inMilliseconds;
-    if (stageIndex >= _pipelineStageCount) {
-      stageIndex = _pipelineStageCount - 1;
+    final key = nextApiKey();
+    if (key == null) {
+      _failActiveTask(
+        task,
+        'No Gemini API key available. Add one in the Settings tab first.',
+      );
+      return;
     }
-    var progress =
-        _activeElapsed.inMilliseconds / _totalProcessingDuration.inMilliseconds;
-    if (progress > 1.0) progress = 1.0;
+    recordKeyUsage(key.id);
 
+    final pipeline = _createPipeline();
+    _activePipeline = pipeline;
+    _isRunningPipeline = true;
+
+    // Snapshot tuning + model so mid-job changes cannot corrupt a running job.
+    final voice = task.voiceProfile;
+    final pitch = _pitchHz;
+    final speed = _speedMultiplier;
+    final ducking = _duckingPercent;
+    final model = _selectedModel;
+
+    try {
+      final workDir = await _resolveWorkDir();
+      final result = await pipeline.run(
+        videoPath: videoPath,
+        workDir: workDir,
+        voice: voice,
+        apiKey: key.token,
+        modelDisplayName: model,
+        pitchHz: pitch,
+        speedMultiplier: speed,
+        duckingPercent: ducking,
+        onProgress: _applyProgress,
+      );
+
+      if (pipeline.isCancelled) return;
+
+      // Release the slot *before* promoting the next job, otherwise
+      // `_runActiveTask` would bail out on the guard flag and the queue would
+      // stall forever.
+      _releasePipelineSlot();
+
+      _completedTasks.insert(
+        0,
+        task.copyWith(
+          progress: 1.0,
+          isProcessing: false,
+          isCompleted: true,
+          outputPath: result.outputVideoPath,
+          stages: _buildStages(
+            voice: voice,
+            activeStageIndex: _pipelineStageCount,
+          ),
+          liveStatusLog: 'All 4 stages completed • Output ready',
+        ),
+      );
+
+      _activeTask = null;
+      _startNextQueuedTask();
+    } on FfmpegCancelledException {
+      // Terminated from the Queue screen; there is nothing to record.
+      _releasePipelineSlot();
+      return;
+    } catch (e) {
+      _releasePipelineSlot();
+      if (pipeline.isCancelled) return;
+      _failActiveTask(task, _describeError(e));
+    }
+  }
+
+  /// Frees the single pipeline slot so the next queued job can start.
+  void _releasePipelineSlot() {
+    _isRunningPipeline = false;
+    _activePipeline = null;
+  }
+
+  /// Mirrors a [DubbingProgress] update onto the active task.
+  void _applyProgress(DubbingProgress progress) {
+    final task = _activeTask;
+    if (task == null) return;
+
+    final stageIndex = progress.stageIndex.clamp(0, _pipelineStageCount - 1);
     _activeTask = task.copyWith(
-      progress: progress,
+      progress: progress.fraction.clamp(0.0, 1.0),
       stages: _buildStages(
         voice: task.voiceProfile,
         activeStageIndex: stageIndex,
       ),
-      liveStatusLog: _stageLog(stageIndex, task),
+      liveStatusLog: progress.message,
     );
     notifyListeners();
   }
 
-  void _completeActiveTask() {
-    _progressTimer?.cancel();
-    _progressTimer = null;
-    final task = _activeTask;
-    if (task == null) return;
-
+  /// Marks the running job as failed, surfaces the reason and promotes the next
+  /// queued job so the pipeline never deadlocks.
+  void _failActiveTask(DubbingTask task, String reason) {
     _completedTasks.insert(
       0,
       task.copyWith(
-        progress: 1.0,
         isProcessing: false,
-        isCompleted: true,
-        stages: _buildStages(
-          voice: task.voiceProfile,
-          activeStageIndex: _pipelineStageCount,
-        ),
-        liveStatusLog: 'All 4 stages completed • Output ready',
+        progress: 0.0,
+        liveStatusLog: 'Failed • $reason',
       ),
     );
 
     _activeTask = null;
-    _activeElapsed = Duration.zero;
-
     _startNextQueuedTask();
     notifyListeners();
+  }
+
+  String _describeError(Object error) {
+    if (error is DubbingConfigurationException) return error.message;
+    if (error is GeminiTranslationException) return error.message;
+    if (error is FfmpegException) {
+      final logs = error.logs;
+      final tail = logs == null || logs.isEmpty ? '' : ' (${logs.trim()})';
+      return 'FFmpeg error$tail';
+    }
+    return error.toString();
   }
 
   /// Pops the next queued task (if any) and starts processing it.
@@ -472,7 +573,7 @@ class AppState extends ChangeNotifier {
       progress: 0.0,
       liveStatusLog: 'Starting pipeline for ${next.videoTitle}',
     );
-    _beginActiveProcessing();
+    _runActiveTask(next);
   }
 
   /// Keeps queue-position labels in the live log in sync after a dequeue.
@@ -547,9 +648,12 @@ class AppState extends ChangeNotifier {
 
     _apiKeys.add(
       ApiKeyItem(
-        id: 'key_${DateTime.now().millisecondsSinceEpoch}',
+        id: _generateKeyId(),
         alias: alias.isEmpty ? 'Custom Key' : alias,
         maskedToken: masked,
+        // The unmasked token is kept so the pipeline can actually call Gemini;
+        // only `maskedToken` is ever rendered in the UI.
+        token: token,
         model: _selectedModel.split(' ')[0],
         status: 'Active',
         rpmUsage: 0,
@@ -561,15 +665,98 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Key pool entries that can actually be used for an API call.
+  ///
+  /// Keys saved before raw tokens were persisted have an empty
+  /// [ApiKeyItem.token] and are skipped, as are ones flagged as cooling down.
+  List<ApiKeyItem> get usableApiKeys => _apiKeys
+      .where((key) => key.token.isNotEmpty && key.status != 'Cooldown')
+      .toList(growable: false);
+
+  /// Injects a key that has no raw token, mimicking a record persisted before
+  /// real tokens were stored. Used by tests to cover the migration path.
+  @visibleForTesting
+  void previewLegacyKeyWithoutToken({String alias = 'Legacy Key'}) {
+    _apiKeys.add(
+      ApiKeyItem(
+        id: _generateKeyId(),
+        alias: alias,
+        maskedToken: 'AIzaSy•••••••••••',
+        token: '',
+        model: _selectedModel.split(' ')[0],
+        status: 'Active',
+        rpmUsage: 0,
+        rpmMax: 60,
+        latencyMs: 120,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Returns the next API key according to [_keyRotationStrategy], or `null`
+  /// when the pool holds no usable key.
+  ApiKeyItem? nextApiKey() {
+    final pool = usableApiKeys;
+    if (pool.isEmpty) return null;
+
+    switch (_keyRotationStrategy) {
+      case 'Round-Robin':
+        final key = pool[_keyRoundRobinIndex % pool.length];
+        _keyRoundRobinIndex = (_keyRoundRobinIndex + 1) % pool.length;
+        return key;
+      case 'Failover Priority':
+        // Lowest latency first: the fastest key is tried before any fallback.
+        final sorted = [...pool]
+          ..sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
+        return sorted.first;
+      case 'Rate-Limit Balanced':
+      default:
+        // Fewest requests in the current window first, so no single key is
+        // hammered until it hits its RPM ceiling.
+        final sorted = [...pool]
+          ..sort((a, b) => a.rpmUsage.compareTo(b.rpmUsage));
+        return sorted.first;
+    }
+  }
+
+  /// Generates an id that is guaranteed not to clash with any other API key.
+  String _generateKeyId() {
+    _apiKeyCounter += 1;
+    return 'key_${DateTime.now().microsecondsSinceEpoch}_$_apiKeyCounter';
+  }
+
+  /// Records that [keyId] served a request, bumping its RPM counter.
+  void recordKeyUsage(String keyId) {
+    final index = _apiKeys.indexWhere((key) => key.id == keyId);
+    if (index == -1) return;
+
+    final key = _apiKeys[index];
+    _apiKeys[index] = ApiKeyItem(
+      id: key.id,
+      alias: key.alias,
+      maskedToken: key.maskedToken,
+      token: key.token,
+      model: key.model,
+      status: key.status,
+      rpmUsage: key.rpmUsage + 1,
+      rpmMax: key.rpmMax,
+      latencyMs: key.latencyMs,
+    );
+    notifyListeners();
+  }
+
   void removeApiKey(String id) {
     _apiKeys.removeWhere((item) => item.id == id);
     _saveApiKeysToStorage();
     notifyListeners();
   }
 
+  /// Cancels any in-flight FFmpeg work so a running job does not outlive the
+  /// app state.
   @override
   void dispose() {
-    _progressTimer?.cancel();
+    _disposed = true;
+    _activePipeline?.cancel();
     super.dispose();
   }
 }
