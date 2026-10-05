@@ -408,12 +408,12 @@ class AppState extends ChangeNotifier {
         return 'Awaiting audio extraction';
       case 1:
         if (done) return 'Khmer translation completed';
-        if (running) return 'Translating dialogue via $_selectedModel';
-        return 'Gemini Khmer translation queued';
+        if (running) return 'Translating dialogue to Khmer';
+        return 'Khmer translation queued';
       case 2:
         if (done) return 'Edge-TTS Khmer audio rendered';
-        if (running) return 'Synthesizing Edge-TTS ${voice.id}';
-        return 'Edge-TTS synthesis queued';
+        if (running) return 'Synthesizing...';
+        return 'Synthesis queued';
       default:
         if (done) return 'Final dubbed MP4 rendered';
         if (running) return 'Remuxing video & muxing Khmer audio';

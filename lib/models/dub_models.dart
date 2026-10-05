@@ -142,7 +142,7 @@ class DubbingStageCatalog {
   static const List<String> titles = [
     '1. Extract audio',
     '2. Transcribe and translate',
-    '3. Generate audio',
+    '3. Generate voice',
     '4. Build video',
   ];
 

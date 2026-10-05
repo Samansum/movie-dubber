@@ -18,7 +18,7 @@ const List<Duration> geminiRetryDelays = [
 ///
 /// Kept as a literal because Dart forbids reading `List.length` inside a `const`
 /// expression; a unit test pins it to `geminiRetryDelays.length + 1`.
-const int maxGeminiAttempts = 4;
+const int maxGeminiAttempts = 5;
 
 /// Progress of a running [DubbingPipeline] job.
 class DubbingProgress {
