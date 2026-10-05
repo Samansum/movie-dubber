@@ -316,6 +316,29 @@ void main() {
       state.dispose();
     });
 
+    test('the gate mounts only once a check reports locked', () {
+      final state = AppState();
+
+      // Cold start: the local read has not happened yet, so the gate must
+      // stay unmounted — this is what stops it flashing on every launch...
+      expect(state.licenseStatus, LicenseStatus.unknown);
+      expect(state.showLicenseGate, isFalse);
+      // ...while the pipeline guard is already shut.
+      expect(state.isLicenseBlocked, isTrue);
+
+      // The local read found a stored key: unlock silently, no gate involved.
+      state.setLicenseStatus(LicenseStatus.valid);
+      expect(state.showLicenseGate, isFalse);
+      expect(state.isLicenseBlocked, isFalse);
+
+      // A later check rejected the key: the gate mounts with its reason.
+      state.setLicenseStatus(LicenseStatus.locked, reason: 'Revoked.');
+      expect(state.showLicenseGate, isTrue);
+      expect(state.licenseLockReason, 'Revoked.');
+
+      state.dispose();
+    });
+
     testWidgets('a valid license lets the job run and retry is allowed',
         (tester) async {
       final created = <RecordingPipeline>[];

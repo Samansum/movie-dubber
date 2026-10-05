@@ -45,11 +45,15 @@ class LicenseController with WidgetsBindingObserver {
   static const String reactivationReason =
       'Your license is no longer valid. Enter a valid key to continue.';
 
-  /// Reads the stored license and, when one exists, verifies it in the
-  /// background.
+  /// Reads the stored license and resolves the app to its status.
   ///
-  /// A stored key is enough to let the user in; [verifyIfDue] then decides
-  /// whether Firestore needs to be consulted at all.
+  /// Deliberately local-only: it settles the gate decision without waiting on
+  /// Firebase or the network, so the launcher can run it before
+  /// `Firebase.initializeApp()`. The Firestore verification is the separate
+  /// [checkOnForeground] step, run once Firebase is ready.
+  ///
+  /// A stored key is enough to let the user in — it is trusted until proven
+  /// otherwise — so a licensed user never waits on the network to start.
   Future<void> bootstrap() async {
     final code = await _readStoredCode();
     if (code == null || code.isEmpty) {
@@ -60,13 +64,13 @@ class LicenseController with WidgetsBindingObserver {
     // Let the user straight in — the stored key is trusted until proven
     // otherwise, so a licensed user never waits on the network to start.
     state.setLicenseStatus(LicenseStatus.valid);
-    await _runBackgroundCheck();
   }
 
   /// Runs the daily check if one is due, and locks the app when it fails.
   ///
-  /// Safe to call repeatedly: overlapping invocations are dropped and a
-  /// not-due check performs no I/O at all.
+  /// Called at launch — immediately after Firebase initialises — and whenever
+  /// the app returns to the foreground. Safe to call repeatedly: overlapping
+  /// invocations are dropped and a not-due check performs no I/O at all.
   Future<void> checkOnForeground() => _runBackgroundCheck();
 
   /// Raw Firebase detail for the most recent failure, for the gate to display.

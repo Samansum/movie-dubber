@@ -6,7 +6,6 @@ import 'screens/main_navigation_screen.dart';
 import 'services/app_state.dart';
 import 'services/license/license_controller.dart';
 import 'services/license/license_service.dart';
-import 'services/license/license_status.dart';
 import 'services/license/license_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/license_gate.dart';
@@ -57,15 +56,25 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
     _state.cleanupPreviousRun();
   }
 
-  /// Starts Firebase and then reads the stored license.
+  /// Reads the stored license, then starts Firebase and runs the daily check.
+  ///
+  /// The local read comes first deliberately: it needs no Firebase, so the
+  /// gate decision settles while Firebase is still initialising. An
+  /// unactivated device reaches the activation screen in a few hundred
+  /// milliseconds instead of only after a multi-second Firebase start-up.
   ///
   /// [DefaultFirebaseOptions.currentPlatform] is required: without it Android
   /// falls back to whatever `google-services.json` produced, and a mismatch
   /// between that file and the Dart options points the SDK at the wrong project.
+  /// Firebase must also be initialised *before* the Firestore check — a due
+  /// check run earlier would hit `FirebaseAuth.instance` with no app
+  /// registered, map that to `networkError` and burn the attempt.
   ///
-  /// Both steps are guarded so a Firebase problem degrades to the activation
+  /// Firebase startup is guarded so a problem degrades to the activation
   /// screen instead of a crash on launch.
   Future<void> _bootstrapLicense() async {
+    await _license.bootstrap();
+
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
@@ -75,7 +84,7 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
     }
 
     _license.start();
-    await _license.bootstrap();
+    await _license.checkOnForeground();
   }
 
   @override
@@ -96,7 +105,12 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
       builder: (context, child) => AnimatedBuilder(
         animation: _state,
         builder: (context, _) {
-          final locked = _state.licenseStatus != LicenseStatus.valid;
+          // Mount the gate only once a check has positively said `locked`.
+          // During the initial `unknown` window the app renders — otherwise a
+          // licensed user would see the activation screen flash on every
+          // launch — while `AppState.isLicenseBlocked` keeps the dubbing
+          // pipeline shut until the stored key has been read.
+          final locked = _state.showLicenseGate;
 
           final app = child ?? const SizedBox.shrink();
           if (!locked) return app;

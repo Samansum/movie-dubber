@@ -21,9 +21,10 @@ class AppState extends ChangeNotifier {
   // License
   /// Where the app stands with respect to licensing.
   ///
-  /// Starts [LicenseStatus.unknown] so the root gate blocks the UI until the
-  /// stored license has actually been read — a licensed user never sees the
-  /// activation dialog flash on launch.
+  /// Starts [LicenseStatus.unknown]: the stored license has not been read yet.
+  /// The app UI renders while `unknown` so a licensed user never sees the
+  /// activation screen flash on launch, but [isLicenseBlocked] keeps the
+  /// dubbing pipeline shut until the read resolves to [LicenseStatus.valid].
   LicenseStatus _licenseStatus = LicenseStatus.unknown;
 
   /// Why the app is locked, shown above the key field. `null` when the app is
@@ -34,6 +35,14 @@ class AppState extends ChangeNotifier {
 
   /// Non-null only while [licenseStatus] is [LicenseStatus.locked].
   String? get licenseLockReason => _licenseLockReason;
+
+  /// Whether the activation gate should be mounted over the app.
+  ///
+  /// Deliberately narrower than [isLicenseBlocked]: the gate appears only once
+  /// a check has positively reported [LicenseStatus.locked] — never during the
+  /// [LicenseStatus.unknown] window between launch and the first
+  /// secure-storage read, which is what stops it flashing on every launch.
+  bool get showLicenseGate => _licenseStatus == LicenseStatus.locked;
 
   /// Whether the dubbing pipeline is allowed to start a job.
   ///
