@@ -59,7 +59,7 @@ class FfmpegDubbingService {
     final done = Completer<Session>();
     final session = await FFmpegKit.executeAsync(
       command,
-          (finished) {
+      (finished) {
         if (!done.isCompleted) done.complete(finished);
       },
     );
@@ -111,27 +111,37 @@ class FfmpegDubbingService {
     required String workDir,
     bool keepBackgroundAudio = false,
     double backgroundGain = 0.25, // linear volume of the background bed
+    String dubbedAudioVolume = '+6dB',
   }) async {
-    if (segments.isEmpty) throw ArgumentError('segments must not be empty');
+    if (segments.isEmpty) {
+      throw ArgumentError('segments must not be empty');
+    }
 
     final args = <String>['-y', '-i', originalVideoPath];
     for (final s in segments) {
-      args..add('-i')..add(s.audioPath);
+
+      args
+        ..add('-i')
+        ..add(s.audioPath);
     }
 
     final g = StringBuffer();
     final labels = <String>[];
     for (var i = 0; i < segments.length; i++) {
+
       final s = segments[i];
       final idx = i + 1;
       var speed = s.calculatedSpeed;
       if (!speed.isFinite) speed = 1.0;
       speed = speed.clamp(1.0, 2.0).toDouble();
-      final delayMs = (s.startSeconds * 1000).round().clamp(0, 1 << 31);
+      final delayMs =
+          (s.startSeconds * 1000).round().clamp(0, 1 << 31);
 
+      // Apply the volume boost/reduction via `volume=$dubbedAudioVolume`
       g.write('[$idx:a]aformat=sample_rates=48000:channel_layouts=mono,'
           'atempo=${speed.toStringAsFixed(4)},'
-          'adelay=$delayMs:all=1[a$idx];');
+          'adelay=$delayMs:all=1,'
+          'volume=$dubbedAudioVolume[a$idx];');
       labels.add('[a$idx]');
     }
 
@@ -139,6 +149,7 @@ class FfmpegDubbingService {
         'duration=longest:dropout_transition=0:normalize=0[dub];');
 
     if (keepBackgroundAudio) {
+
       g.write('[dub]asplit=2[dub_out][dub_key];'
           '[0:a]aformat=sample_rates=48000:channel_layouts=mono,'
           'volume=$backgroundGain[bg];'
@@ -172,7 +183,9 @@ class FfmpegDubbingService {
     final done = Completer<Session>();
     final session = await FFmpegKit.executeWithArgumentsAsync(
       args,
-          (s) { if (!done.isCompleted) done.complete(s); },
+      (s) {
+        if (!done.isCompleted) done.complete(s);
+      },
     );
     _activeSession = session;
     final finished = await done.future;
@@ -185,7 +198,8 @@ class FfmpegDubbingService {
     if (rc == null || !ReturnCode.isSuccess(rc)) {
       final logs = await finished.getAllLogsAsString() ?? '';
       final lines = logs.split('\n');
-      final tail = lines.skip(lines.length > 40 ? lines.length - 40 : 0).join('\n');
+      final tail =
+          lines.skip(lines.length > 40 ? lines.length - 40 : 0).join('\n');
       throw FfmpegException(args.join(' '), tail); // tail = the actual error
     }
   }
