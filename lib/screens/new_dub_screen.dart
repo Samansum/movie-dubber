@@ -678,6 +678,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
               ),
             ),
           ),
+
+          const SizedBox(height: 16),
         ],
       ),
     );
