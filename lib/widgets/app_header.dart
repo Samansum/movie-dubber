@@ -67,27 +67,11 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   width: 34,
                   height: 34,
                   margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7C3AED), Color(0xFF06B6D4)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x667C3AED),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
                   child: const Center(
-                    child: Icon(
-                      Icons.videocam_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    child: Image(
+                        image: AssetImage('assets/images/logo.png'),
+                        width: 34,
+                        height: 34),
                   ),
                 ),
               Column(
@@ -115,55 +99,55 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           ),
 
           // Right: Status & Avatar
-          Row(
-            children: [
-              // Online Indicator with Creator Avatar
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: AppColors.primaryContainer, width: 1.5),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x667C3AED),
-                          blurRadius: 12,
-                        ),
-                      ],
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/logo.png'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  // Positioned(
-                  //   bottom: -1,
-                  //   right: -1,
-                  //   child: Container(
-                  //     width: 10,
-                  //     height: 10,
-                  //     decoration: BoxDecoration(
-                  //       color: AppColors.tertiary,
-                  //       shape: BoxShape.circle,
-                  //       border: Border.all(color: AppColors.surface, width: 2),
-                  //       boxShadow: const [
-                  //         BoxShadow(
-                  //           color: AppColors.tertiary,
-                  //           blurRadius: 6,
-                  //           spreadRadius: 1,
-                  //         ),
-                  //       ],
-                  //     ),
-                  //   ),
-                  // ),
-                ],
-              ),
-            ],
-          ),
+          // Row(
+          //   children: [
+          //     // Online Indicator with Creator Avatar
+          //     Stack(
+          //       clipBehavior: Clip.none,
+          //       children: [
+          //         Container(
+          //           width: 36,
+          //           height: 36,
+          //           decoration: BoxDecoration(
+          //             shape: BoxShape.circle,
+          //             border: Border.all(
+          //                 color: AppColors.primaryContainer, width: 1.5),
+          //             boxShadow: const [
+          //               BoxShadow(
+          //                 color: Color(0x667C3AED),
+          //                 blurRadius: 12,
+          //               ),
+          //             ],
+          //             image: const DecorationImage(
+          //               image: AssetImage('assets/images/logo.png'),
+          //               fit: BoxFit.cover,
+          //             ),
+          //           ),
+          //         ),
+          //         // Positioned(
+          //         //   bottom: -1,
+          //         //   right: -1,
+          //         //   child: Container(
+          //         //     width: 10,
+          //         //     height: 10,
+          //         //     decoration: BoxDecoration(
+          //         //       color: AppColors.tertiary,
+          //         //       shape: BoxShape.circle,
+          //         //       border: Border.all(color: AppColors.surface, width: 2),
+          //         //       boxShadow: const [
+          //         //         BoxShadow(
+          //         //           color: AppColors.tertiary,
+          //         //           blurRadius: 6,
+          //         //           spreadRadius: 1,
+          //         //         ),
+          //         //       ],
+          //         //     ),
+          //         //   ),
+          //         // ),
+          //       ],
+          //     ),
+          //   ],
+          // ),
         ],
       ),
     );
