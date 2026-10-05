@@ -145,16 +145,16 @@ class FfmpegDubbingService {
           '[bg][dub_key]sidechaincompress=threshold=0.02:ratio=10:'
           'attack=10:release=300[bg_ducked];'
           '[dub_out][bg_ducked]amix=inputs=2:duration=longest:'
-          'dropout_transition=0:normalize=0,apad[final]');
+          'dropout_transition=0:normalize=0,aresample=async=1000,apad[final]');
     } else {
-      g.write('[dub]apad[final]');
+      g.write('[dub]aresample=async=1000,apad[final]');
     }
 
     final scriptPath = '$workDir/mix_graph.txt';
     await File(scriptPath).writeAsString(g.toString());
 
     args.addAll([
-      '-filter_complex', g.toString(),
+      '-filter_complex_script', scriptPath,
       '-map', '0:v:0',
       '-map', '[final]',
       '-c:v', 'copy',
