@@ -216,6 +216,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
           _buildVideoViewport(),
           const SizedBox(height: 24),
           _buildSaveButton(),
+          const SizedBox(height: 16),
           // The button always stays put; success is confirmed below it.
           // if (widget.state.saveGalleryState == 'saved') ...[
           //   const SizedBox(height: 12),
@@ -289,39 +290,6 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.tertiary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.tertiary, size: 15),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Rendering & Sync Complete',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.tertiary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                duration == null ? task.duration : _formatDuration(duration),
-                style:
-                    AppTypography.codeMono.copyWith(color: AppColors.secondary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
               Expanded(
                 child: Text(
                   task.videoTitle,
@@ -344,23 +312,27 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            'Voice: ${task.voiceProfile.name}',
-            style: AppTypography.bodySm.copyWith(fontSize: 11),
-          ),
-          if (position != null &&
-              duration != null &&
-              duration.inMilliseconds > 0) ...[
-            const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Text(
-              'Playback ${_formatDuration(position)} / '
-              '${_formatDuration(duration)}',
-              style: AppTypography.codeMono.copyWith(
-                fontSize: 11,
-                color: AppColors.onSurfaceVariant,
-              ),
+              'Voice: ${task.voiceProfile.name}',
+              style: AppTypography.bodySm.copyWith(fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
+            if (position != null &&
+                duration != null &&
+                duration.inMilliseconds > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Playback ${_formatDuration(position)} / '
+                '${_formatDuration(duration)}',
+                style: AppTypography.codeMono.copyWith(
+                  fontSize: 11,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ]),
         ],
       ),
     );
