@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:khmer_dubber_mobile/models/dub_models.dart';
 import 'package:khmer_dubber_mobile/screens/completed_player_screen.dart';
 import 'package:khmer_dubber_mobile/services/app_state.dart';
+import 'package:khmer_dubber_mobile/services/license/license_status.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/dubbing_pipeline.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/ffmpeg_dubbing_service.dart';
 import 'package:khmer_dubber_mobile/services/dubbing/gemini_translation_service.dart';
@@ -176,6 +177,38 @@ class _CallbackPipeline extends DubbingPipeline {
   }
 }
 
+/// A pipeline that records whether it was ever asked to run, used to prove the
+/// license guard stops a job before any pipeline work begins.
+class RecordingPipeline extends DubbingPipeline {
+  RecordingPipeline(this.created);
+
+  final List<RecordingPipeline> created;
+  Completer<void>? gate;
+
+  @override
+  Future<DubbingResult> run({
+    required String videoPath,
+    required String workDir,
+    required VoiceProfile voice,
+    required String apiKey,
+    required String modelDisplayName,
+    double pitchHz = 0.0,
+    double speedMultiplier = 1.0,
+    double duckingPercent = -25.0,
+    int startStage = 0,
+    String? Function()? onRateLimited,
+    void Function(DubbingProgress progress)? onProgress,
+  }) async {
+    created.add(this);
+    await (gate?.future ?? Future<void>.value());
+    return DubbingResult(
+      outputVideoPath: '$workDir/out.mp4',
+      srtContent: '',
+      entries: const [],
+    );
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -190,6 +223,17 @@ void main() {
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
 
+  /// Builds an AppState with a valid license in place.
+  ///
+  /// The dubbing pipeline refuses to start while the app is license-locked, so
+  /// queue mechanics are exercised against a licensed state. License behaviour
+  /// itself is covered in license_service_test.dart.
+  AppState licensedState() {
+    final state = AppState();
+    state.setLicenseStatus(LicenseStatus.valid);
+    return state;
+  }
+
   /// Builds an AppState wired to fake pipelines with a temp work dir and a saved
   /// Gemini key, so jobs actually run.
   ///
@@ -200,7 +244,7 @@ void main() {
     List<int> steps = const [0],
     Completer<void>? gate,
   }) {
-    final state = AppState();
+    final state = licensedState();
     state.addApiKey('Test Key', 'fake-token-123');
     state.workDirOverride = tempDir.path;
     state.pipelineFactory = () {
@@ -221,8 +265,100 @@ void main() {
     );
   }
 
+  group('license gate', () {
+    testWidgets('a locked app refuses to start a dubbing job',
+        (tester) async {
+      final state = AppState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      final created = <RecordingPipeline>[];
+      state.pipelineFactory = () => RecordingPipeline(created);
+
+      state.setLicenseStatus(
+        LicenseStatus.locked,
+        reason: 'Your license is no longer valid.',
+      );
+      await tester.pump();
+
+      enqueue(state, 'blocked');
+
+      // No task is created, nothing is queued and the pipeline never runs.
+      expect(state.queuedTasks, isEmpty);
+      expect(state.activeTask, isNull);
+      expect(created, isEmpty);
+      expect(state.completedTasks, isEmpty);
+
+      state.dispose();
+    });
+
+    testWidgets('an unknown license status also blocks the pipeline',
+        (tester) async {
+      final state = AppState();
+      state.workDirOverride = tempDir.path;
+      final created = <RecordingPipeline>[];
+      state.pipelineFactory = () => RecordingPipeline(created);
+
+      // `unknown` is the cold-start state, before secure storage is read.
+      expect(state.licenseStatus, LicenseStatus.unknown);
+      expect(state.isLicenseBlocked, isTrue);
+
+      state.startNewDubbingJob(
+        videoTitle: 'early.mp4',
+        duration: '01:00',
+        fileSpecs: '1.0 MB • MP4',
+        videoPath: '${tempDir.path}/early.mp4',
+      );
+      await tester.pump();
+
+      expect(created, isEmpty);
+      expect(state.activeTask, isNull);
+
+      state.dispose();
+    });
+
+    testWidgets('a valid license lets the job run and retry is allowed',
+        (tester) async {
+      final created = <RecordingPipeline>[];
+      final state = licensedState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      state.pipelineFactory = () => RecordingPipeline(created);
+
+      expect(state.isLicenseBlocked, isFalse);
+
+      enqueue(state, 'allowed');
+      await tester.pumpAndSettle();
+
+      expect(created, isNotEmpty);
+      expect(state.completedTasks, isNotEmpty);
+
+      state.dispose();
+    });
+
+    testWidgets('locking mid-session stops further jobs from starting',
+        (tester) async {
+      final state = licensedState();
+      state.addApiKey('Test Key', 'fake-token-123');
+      state.workDirOverride = tempDir.path;
+      final created = <RecordingPipeline>[];
+      state.pipelineFactory = () => RecordingPipeline(created);
+
+      // e.g. the once-a-day background check revoked the key.
+      state.setLicenseStatus(LicenseStatus.locked, reason: 'Revoked.');
+      await tester.pump();
+
+      enqueue(state, 'after-lock');
+      await tester.pumpAndSettle();
+
+      expect(created, isEmpty);
+      expect(state.completedTasks, isEmpty);
+
+      state.dispose();
+    });
+  });
+
   testWidgets('pipeline starts idle with no dummy data', (tester) async {
-    final state = AppState();
+    final state = licensedState();
     await tester.pump();
 
     expect(state.activeTask, isNull);
@@ -404,7 +540,7 @@ void main() {
   testWidgets('a job without a Gemini key fails fast and never blocks',
       (tester) async {
     // No API key saved on purpose.
-    final state = AppState();
+    final state = licensedState();
     state.workDirOverride = tempDir.path;
     state.pipelineFactory = () => FakePipeline([0]);
     await tester.pump();
@@ -527,7 +663,7 @@ void main() {
   });
   group('API key pool', () {
     test('stores the raw token so the pipeline can call Gemini', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Key A', 'AIzaSyREAL-TOKEN-1234');
 
       expect(state.apiKeys.single.maskedToken, contains('•••••'));
@@ -536,7 +672,7 @@ void main() {
     });
 
     test('generated key ids stay unique even in the same millisecond', () {
-      final state = AppState();
+      final state = licensedState();
       for (var i = 0; i < 50; i++) {
         state.addApiKey('Key $i', 'token-$i');
       }
@@ -547,7 +683,7 @@ void main() {
     });
 
     test('nextApiKey honours the rotation strategy', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('A', 'token-a');
       state.addApiKey('B', 'token-b');
       state.addApiKey('C', 'token-c');
@@ -569,7 +705,7 @@ void main() {
     });
 
     test('recordKeyUsage bumps the RPM counter', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('A', 'token-a');
       final id = state.apiKeys.single.id;
 
@@ -583,7 +719,7 @@ void main() {
     });
 
     test('usableApiKeys excludes keys saved without a raw token', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Good', 'token-good');
 
       // Simulate a legacy record persisted before raw tokens were stored.
@@ -598,7 +734,7 @@ void main() {
   });
 group('Player screen selection', () {
     test('playerTask is null before anything has rendered', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('K', 'token');
       expect(state.playerTask, isNull, reason: 'nothing rendered yet');
 
@@ -649,7 +785,7 @@ group('Player screen selection', () {
 
     testWidgets('saveToGallery fails loudly when there is nothing to save',
         (tester) async {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('K', 'token');
       await tester.pump();
 
@@ -724,7 +860,7 @@ group('Player screen selection', () {
 
     group('Gemini key rotation on rate limit', () {
     test('rotateKey sidelines the throttled key and promotes another', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('A', 'token-a');
       state.addApiKey('B', 'token-b');
       state.addApiKey('C', 'token-c');
@@ -751,7 +887,7 @@ group('Player screen selection', () {
     });
 
     test('rotateKey returns null when no other key is available', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Solo', 'token-solo');
 
       final only = state.nextApiKey()!;
@@ -763,7 +899,7 @@ group('Player screen selection', () {
     });
 
     test('a throttled key becomes usable again after its cooldown', () async {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('A', 'token-a');
       state.addApiKey('B', 'token-b');
 
@@ -781,7 +917,7 @@ group('Player screen selection', () {
     });
 
     test('the promoted key keeps serving until it is throttled itself', () {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('A', 'token-a');
       state.addApiKey('B', 'token-b');
 
@@ -805,7 +941,7 @@ group('Player screen selection', () {
       var attempts = 0;
       final startStages = <int>[];
 
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Test Key', 'fake-token-123');
       state.workDirOverride = tempDir.path;
       state.pipelineFactory = () => _CallbackPipeline((run) {
@@ -848,7 +984,7 @@ group('Player screen selection', () {
     });
 
     test('retryFailedStage and removeFailedTask ignore unknown ids', () {
-      final state = AppState();
+      final state = licensedState();
       expect(state.retryFailedStage('nope'), isFalse);
       expect(state.removeFailedTask('nope'), isFalse);
       state.dispose();
@@ -856,7 +992,7 @@ group('Player screen selection', () {
 
     testWidgets('removeFailedTask drops only the target job',
         (tester) async {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Test Key', 'fake-token-123');
       state.workDirOverride = tempDir.path;
       var calls = 0;
@@ -1046,7 +1182,7 @@ group('Player screen selection', () {
   group('Pipeline stage error tracking', () {
     /// Builds a state whose pipeline fails on [failAtStage].
     AppState buildFailingState(int failAtStage, Object error) {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Test Key', 'fake-token-123');
       state.workDirOverride = tempDir.path;
       state.pipelineFactory = () => FailingPipeline(failAtStage, error);
@@ -1167,7 +1303,7 @@ group('Player screen selection', () {
 
     testWidgets('a failed job still promotes the next queued job',
         (tester) async {
-      final state = AppState();
+      final state = licensedState();
       state.addApiKey('Test Key', 'fake-token-123');
       state.workDirOverride = tempDir.path;
 

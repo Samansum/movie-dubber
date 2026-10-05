@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "583386623484",
+    "project_id": "khmer-movie-dubber",
+    "storage_bucket": "khmer-movie-dubber.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:583386623484:android:f48db9adf7d296405d5679",
+        "android_client_info": {
+          "package_name": "com.example.khmer_dubber_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4OUazdtHCw0U6W6LZpa2Fu608j8bDInk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

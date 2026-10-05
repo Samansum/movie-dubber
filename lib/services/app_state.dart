@@ -13,9 +13,41 @@ import 'dubbing/ffmpeg_dubbing_service.dart';
 import 'dubbing/gemini_translation_service.dart';
 import 'dubbing/tts_segment_service.dart';
 import 'dubbing/workspace_cleanup_service.dart';
+import 'license/license_status.dart';
 
 class AppState extends ChangeNotifier {
   SharedPreferences? _prefs;
+
+  // License
+  /// Where the app stands with respect to licensing.
+  ///
+  /// Starts [LicenseStatus.unknown] so the root gate blocks the UI until the
+  /// stored license has actually been read — a licensed user never sees the
+  /// activation dialog flash on launch.
+  LicenseStatus _licenseStatus = LicenseStatus.unknown;
+
+  /// Why the app is locked, shown above the key field. `null` when the app is
+  /// simply not activated yet.
+  String? _licenseLockReason;
+
+  LicenseStatus get licenseStatus => _licenseStatus;
+
+  /// Non-null only while [licenseStatus] is [LicenseStatus.locked].
+  String? get licenseLockReason => _licenseLockReason;
+
+  /// Whether the dubbing pipeline is allowed to start a job.
+  ///
+  /// Reads the in-memory status only and never performs I/O: the pipeline guard
+  /// must stay synchronous so a job can be refused before any network call.
+  bool get isLicenseBlocked => _licenseStatus != LicenseStatus.valid;
+
+  /// Records the outcome of a license check and wakes any listeners.
+  void setLicenseStatus(LicenseStatus status, {String? reason}) {
+    if (_licenseStatus == status && _licenseLockReason == reason) return;
+    _licenseStatus = status;
+    _licenseLockReason = status == LicenseStatus.locked ? reason : null;
+    notifyListeners();
+  }
 
   // Navigation
   int _currentTabIndex = 0;
@@ -425,6 +457,14 @@ class AppState extends ChangeNotifier {
     required String fileSpecs,
     String? videoPath,
   }) {
+    // Refuse before the task exists so a locked app never shows a queued job it
+    // will not run. In-memory check only — no network request.
+    if (isLicenseBlocked) {
+      debugPrint('[AppState] startNewDubbingJob refused: license is '
+          '${_licenseStatus.name}.');
+      return;
+    }
+
     final task = _createTask(
       videoTitle: videoTitle,
       duration: duration,
@@ -520,6 +560,31 @@ class AppState extends ChangeNotifier {
   /// Runs the four real dubbing stages for [task] and reports progress.
   Future<void> _runActiveTask(DubbingTask task) async {
     if (_isRunningPipeline) return;
+
+    // License gate. Deliberately reads the in-memory status only and makes no
+    // network call: every job path (new job, dequeue, retry) funnels through
+    // here, so this single check stops the job from spending a Gemini/FFmpeg
+    // run while the app is locked.
+    //
+    // The task is failed rather than silently dropped, which releases the
+    // single pipeline slot and promotes the next queued job instead of
+    // leaving `_activeTask` spinning forever.
+    if (isLicenseBlocked) {
+      debugPrint('[AppState] Refusing to start ${task.videoTitle}: '
+          'license is ${_licenseStatus.name}.');
+      const reason = 'A valid license key is required to start a dubbing job.';
+      _failActiveTask(
+        task,
+        DubbingStageCatalog.errorForStage(
+          0,
+          cause: const DubbingConfigurationException(reason),
+          message: reason,
+          details: 'AppState.isLicenseBlocked was true '
+              '(license status: ${_licenseStatus.name}).',
+        ),
+      );
+      return;
+    }
 
     final videoPath = task.videoPath;
     if (videoPath == null || videoPath.isEmpty) {
@@ -630,6 +695,10 @@ class AppState extends ChangeNotifier {
   /// re-synthesizes the lines that failed. Returns `false` when the job is not
   /// in the failed list (e.g. it was already removed).
   bool retryFailedStage(String taskId, {int? fromStage}) {
+    // Same in-memory guard as startNewDubbingJob — a retry would otherwise
+    // re-enter the pipeline while the app is locked.
+    if (isLicenseBlocked) return false;
+
     final index = _failedTasks.indexWhere((task) => task.id == taskId);
     if (index == -1) return false;
 
