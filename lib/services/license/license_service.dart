@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import 'license_result.dart';
 import 'license_store.dart';
@@ -70,6 +71,17 @@ class LicenseService {
   /// standing up an Auth backend.
   final Future<String?> Function()? _deviceIdResolver;
 
+  /// Detail of the most recent failure, shown alongside the generic message.
+  String? _lastErrorDetail;
+
+  /// Firebase error code (and message) from the last failed operation, or
+  /// `null` when the last operation succeeded.
+  ///
+  /// A bare "No internet connection" is actively misleading when the real
+  /// cause is e.g. `CONFIGURATION_NOT_FOUND` from a disabled Auth provider, so
+  /// the technical detail is surfaced instead of being swallowed.
+  String? get lastErrorDetail => _lastErrorDetail;
+
   /// Resolves the Firestore instance lazily.
   ///
   /// Deferring this keeps construction side-effect free, so [LicenseService]
@@ -95,6 +107,10 @@ class LicenseService {
   Future<LicenseResult> activate(String rawCode) async {
     final code = _normalize(rawCode);
     if (code.isEmpty) return LicenseResult.invalid;
+
+    // A fresh attempt clears the previous failure so a stale error code is
+    // never shown against a new key.
+    _lastErrorDetail = null;
 
     try {
       final deviceId = await _resolveDeviceId();
@@ -132,8 +148,8 @@ class LicenseService {
         await _store.writeCode(code, DateTime.now());
       }
       return result;
-    } catch (error) {
-      return _mapError(error);
+    } catch (error, stackTrace) {
+      return _mapError(error, stackTrace);
     }
   }
 
@@ -176,8 +192,8 @@ class LicenseService {
       } else {
         result = LicenseResult.valid;
       }
-    } catch (error) {
-      return _mapError(error);
+    } catch (error, stackTrace) {
+      return _mapError(error, stackTrace);
     }
 
     if (result == LicenseResult.valid) {
@@ -193,8 +209,10 @@ class LicenseService {
 
   /// Returns the Firebase Anonymous Auth uid, signing in on first use.
   ///
-  /// Returning `null` when Auth is unavailable lets callers degrade to
-  /// [LicenseResult.networkError] instead of crashing on a missing plugin.
+  /// Every failure is logged and reported as `null` so callers degrade to
+  /// [LicenseResult.networkError] instead of crashing on a missing plugin. The
+  /// most common cause of a `null` here is the Anonymous provider being
+  /// disabled in the Firebase console (Auth → Sign-in method).
   Future<String?> _resolveDeviceId() async {
     final override = _deviceIdResolver;
     if (override != null) return override();
@@ -204,7 +222,12 @@ class LicenseService {
     if (current != null) return current.uid;
 
     final credential = await auth.signInAnonymously();
-    return credential.user?.uid;
+    final uid = credential.user?.uid;
+    if (uid == null) {
+      debugPrint('[LicenseService] Anonymous sign-in returned no user.');
+      _lastErrorDetail = 'Anonymous sign-in returned no user';
+    }
+    return uid;
   }
 
   /// Normalises user input into the exact document id used in Firestore.
@@ -215,8 +238,27 @@ class LicenseService {
 
   /// Translates a thrown Firestore/Auth error into a [LicenseResult].
   ///
-  /// Anything that escapes the happy path is treated as a connectivity problem.
-  /// A permission error or a transient server fault must not destroy a license
-  /// the user legitimately owns.
-  static LicenseResult _mapError(Object error) => LicenseResult.networkError;
+  /// A [FirebaseException] carries a machine-readable [FirebaseException.code]
+  /// that identifies what actually went wrong. That code is recorded in
+  /// [lastErrorDetail] so the UI can distinguish a genuine connectivity
+  /// failure from a configuration fault — reporting
+  /// `CONFIGURATION_NOT_FOUND` as "no internet" sends the user looking at the
+  /// wrong thing entirely.
+  ///
+  /// It still returns [LicenseResult.networkError] because that is the only
+  /// non-fatal bucket in the enum: a misconfigured project must not destroy a
+  /// license the user legitimately owns, nor lock them out.
+  LicenseResult _mapError(Object error, StackTrace? stackTrace) {
+    final isFirebaseError = error is FirebaseException;
+    final code = isFirebaseError ? error.code : error.runtimeType.toString();
+    final message = isFirebaseError ? (error.message ?? 'no message') : '$error';
+
+    // Keep the machine-readable code so the UI can say something truthful.
+    _lastErrorDetail = '$code: $message';
+
+    debugPrint('[LicenseService] $code: $error');
+    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+
+    return LicenseResult.networkError;
+  }
 }

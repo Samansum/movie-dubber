@@ -69,6 +69,9 @@ class LicenseController with WidgetsBindingObserver {
   /// not-due check performs no I/O at all.
   Future<void> checkOnForeground() => _runBackgroundCheck();
 
+  /// Raw Firebase detail for the most recent failure, for the gate to display.
+  String? get lastErrorDetail => service.lastErrorDetail;
+
   /// Submits [code] from the activation gate.
   ///
   /// Only [LicenseResult.valid] moves the app out of the locked state; every

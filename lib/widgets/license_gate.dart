@@ -20,6 +20,12 @@ class LicenseGate extends StatefulWidget {
   /// [LicenseResult.valid].
   final Future<LicenseResult> Function(String code) onActivate;
 
+  /// Technical detail (e.g. the Firebase error code) for the last failure.
+  ///
+  /// Shown under the generic message so a configuration fault such as
+  /// `CONFIGURATION_NOT_FOUND` is not disguised as a connectivity problem.
+  final String? Function()? errorDetail;
+
   /// Copy explaining why the app is locked. `null` on a first-run activation.
   final String? lockReason;
 
@@ -28,6 +34,7 @@ class LicenseGate extends StatefulWidget {
     required this.child,
     required this.onActivate,
     this.lockReason,
+    this.errorDetail,
   });
 
   @override
@@ -40,6 +47,9 @@ class _LicenseGateState extends State<LicenseGate> {
 
   bool _loading = false;
   String? _error;
+
+  /// Raw Firebase error detail accompanying [_error], when available.
+  String? _detail;
 
   @override
   void dispose() {
@@ -73,6 +83,11 @@ class _LicenseGateState extends State<LicenseGate> {
       // On success the gate disappears, so there is nothing left to report;
       // every other outcome keeps the gate up with a reason.
       _error = result == LicenseResult.valid ? null : result.message;
+      // Only surface the raw Firebase detail when the friendly message is
+      // about connectivity — a real outage needs no explanation.
+      _detail = result == LicenseResult.networkError
+          ? widget.errorDetail?.call()
+          : null;
     });
   }
 
@@ -101,6 +116,7 @@ class _LicenseGateState extends State<LicenseGate> {
                   focusNode: _focusNode,
                   loading: _loading,
                   error: _error,
+                  detail: _detail,
                   lockReason: widget.lockReason,
                   onSubmit: _submit,
                 ),
@@ -119,6 +135,9 @@ class _LicensePanel extends StatelessWidget {
   final FocusNode focusNode;
   final bool loading;
   final String? error;
+
+  /// Raw Firebase error detail shown under [error].
+  final String? detail;
   final String? lockReason;
   final VoidCallback onSubmit;
 
@@ -127,6 +146,7 @@ class _LicensePanel extends StatelessWidget {
     required this.focusNode,
     required this.loading,
     required this.error,
+    required this.detail,
     required this.lockReason,
     required this.onSubmit,
   });
@@ -201,6 +221,14 @@ class _LicensePanel extends StatelessWidget {
             ),
             onSubmitted: (_) => onSubmit(),
           ),
+
+          // Raw Firebase error, e.g. `CONFIGURATION_NOT_FOUND`. Without this the
+          // user sees "No internet connection" for what is really a disabled
+          // Auth provider or a denied Firestore rule.
+          if (detail != null) ...[
+            const SizedBox(height: 12),
+            Text(detail!, style: AppTypography.codeMono),
+          ],
           const SizedBox(height: 20),
 
           // Disabled while loading so a slow transaction cannot be fired twice

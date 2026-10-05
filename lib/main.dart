@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../firebase_options.dart';
 import 'screens/main_navigation_screen.dart';
 import 'services/app_state.dart';
 import 'services/license/license_controller.dart';
@@ -56,14 +57,19 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
     _state.cleanupPreviousRun();
   }
 
-  /// Starts Firebase (once) and then reads the stored license.
+  /// Starts Firebase and then reads the stored license.
+  ///
+  /// [DefaultFirebaseOptions.currentPlatform] is required: without it Android
+  /// falls back to whatever `google-services.json` produced, and a mismatch
+  /// between that file and the Dart options points the SDK at the wrong project.
   ///
   /// Both steps are guarded so a Firebase problem degrades to the activation
-  /// screen instead of a crash on launch: an uninitialised SDK surfaces as a
-  /// `networkError`, which the gate reports rather than acting on.
+  /// screen instead of a crash on launch.
   Future<void> _bootstrapLicense() async {
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     } catch (error) {
       debugPrint('[main] Firebase init failed: $error');
     }
@@ -98,6 +104,7 @@ class _KhmerDubberAppState extends State<KhmerDubberApp> {
           return LicenseGate(
             lockReason: _state.licenseLockReason,
             onActivate: _license.activate,
+            errorDetail: () => _license.lastErrorDetail,
             child: app,
           );
         },
