@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../firebase_options.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'models/dub_models.dart';
@@ -45,6 +46,7 @@ class _KhmerDubberAppState extends State<KhmerDubberApp>
     with WidgetsBindingObserver {
   late final AppState _state;
   late final LicenseController _license;
+  final GlobalKey _appKey = GlobalKey(debugLabel: 'app-content');
 
   @override
   void initState() {
@@ -171,9 +173,7 @@ class _KhmerDubberAppState extends State<KhmerDubberApp>
     return AnimatedBuilder(
       animation: _state,
       builder: (context, _) {
-        // Force Flutter to treat a locale change as a brand-new MaterialApp
-        // so the localization subsystem fully resets.
-        final appWidget = MaterialApp(
+        return MaterialApp(
           key: ValueKey('locale_${_state.appLocale.languageCode}'),
           title: 'CineDub AI - Khmer Video Dubber Studio',
           debugShowCheckedModeBanner: false,
@@ -182,20 +182,23 @@ class _KhmerDubberAppState extends State<KhmerDubberApp>
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: MainNavigationScreen(state: _state),
+          // Above the Navigator (covers every route and dialog) but below
+          // Directionality, Theme, MediaQuery and Localizations.
+          builder: (context, child) {
+            // The GlobalKey lets the Navigator be reparented when the gate
+            // appears or disappears, so its state survives.
+            final app = KeyedSubtree(key: _appKey, child: child!);
+
+            if (!_state.showLicenseGate) return app;
+
+            return LicenseGate(
+              lockReason: _state.licenseLockReason,
+              onActivate: _license.activate,
+              errorDetail: () => _license.lastErrorDetail,
+              child: app,
+            );
+          },
         );
-
-        // The gate wraps the Navigator so the lock covers every route, dialog
-        // and overlay the app can push — not just the first screen.
-        if (_state.showLicenseGate) {
-          return LicenseGate(
-            lockReason: _state.licenseLockReason,
-            onActivate: _license.activate,
-            errorDetail: () => _license.lastErrorDetail,
-            child: appWidget,
-          );
-        }
-
-        return appWidget;
       },
     );
   }
