@@ -12,52 +12,52 @@ class AppLocalizationsKm extends AppLocalizations {
   String get appName => 'CineDub AI';
 
   @override
-  String get appTagline => 'ម៉ាស៊ីនខ្មែរ';
+  String get appTagline => 'កម្មវីធីកូនខ្មែរ';
 
   @override
-  String get tabDub => 'សម្រង់';
+  String get tabDub => 'បកប្រែរឿង';
 
   @override
-  String get tabQueue => 'ជួរ';
+  String get tabQueue => 'បញ្ជីការងា';
 
   @override
-  String get tabPlayer => 'បង្ហាញ';
+  String get tabPlayer => 'មើលវីដេអូ';
 
   @override
   String get tabSettings => 'ការកំណត់';
 
   @override
-  String get tabChunking => 'ចែក';
+  String get tabChunking => 'បំបែករឿងភាគ';
 
   @override
   String get screenHomeTitle => 'CineDub AI';
 
   @override
-  String get screenHomeSubtitle => 'ម៉ាស៊ីនខ្មែរ';
+  String get screenHomeSubtitle => 'កម្មវីធីកូនខ្មែរ';
 
   @override
-  String get screenQueueTitle => 'ជួរការសម្រង់';
+  String get screenQueueTitle => 'បញ្ជីនៃការងាបកប្រែ';
 
   @override
-  String get screenQueueSubtitle => 'ម៉ូនិទ័រប្រព័ន្ធ';
+  String get screenQueueSubtitle => 'ត្រួតពិនិត្យប្រព័ន្ធ';
 
   @override
-  String get screenPlayerTitle => 'វីដេអូសម្រង់រួច';
+  String get screenPlayerTitle => 'វីដេអូបកប្រែរួច';
 
   @override
-  String get screenPlayerSubtitle => 'ស្ដូឌីអ្នកលេង';
+  String get screenPlayerSubtitle => 'កន្លែកចាក់វីដេអូ';
 
   @override
-  String get screenSettingsTitle => 'ការកំណត់សម្រង់';
+  String get screenSettingsTitle => 'ការកំណត់';
 
   @override
-  String get screenSettingsSubtitle => 'ការកំណត់ Gemini និង TTS';
+  String get screenSettingsSubtitle => 'ការកំណត់ ភាសា Gemini និង TTS';
 
   @override
-  String get screenChunkingTitle => 'ការបំបែកវីដេអូ';
+  String get screenChunkingTitle => 'ការបំបែកវីដេអូជារឿងភាគ';
 
   @override
-  String get screenChunkingSubtitle => 'ប្រព័ន្ធជែកដោយ AI';
+  String get screenChunkingSubtitle => 'ប្រព័ន្ធបំបែកជោយប្រើ AI';
 
   @override
   String get back => 'ត្រឡប់ក្រោយ';
@@ -82,22 +82,22 @@ class AppLocalizationsKm extends AppLocalizations {
   String get languageSwitchedToKhmer => 'បានកំណត់ភាសាកម្មវិធីជាភាសាខ្មែរ។';
 
   @override
-  String get keysPoolTitle => 'បូកគន្លឹះ Gemini API';
+  String get keysPoolTitle => 'បន្ថែម Gemini API';
 
   @override
   String get keysPoolSubtitle =>
-      'បន្ថែមគន្លឹះជាច្រើនដើម្បីលើកលែងកំណត់ RPM/TPM។ CineDub AI ប្តូរថេកូនសកម្មដោយស្វ័យប្រវត្តិអំឡុងការសម្រង់ភាសាខ្មែរពេញរឿង។';
+      'បន្ថែមពាក្រសំងាត់ API ច្រើនដើម្បីបកប្រែរឿងបានច្រើន។ ប្រព័ន្ធនិងផ្លាស់ប្តូរពាក្រសំងាត់ API ដោយស្វ័យប្រវត្តិពេលអស់លីមីត។';
 
   @override
-  String get registeredKeys => 'គន្លឹះដែលបានចុះឈ្មោះ';
+  String get registeredKeys => 'ពាក្រសំងាត់ API ដែលបានរក្សាទុក';
 
   @override
   String configuredCount(int count) {
-    return '$count គន្លឹះ';
+    return '$count ពាក្រសំងាត់';
   }
 
   @override
-  String get addGeminiApiKey => 'បន្ថែមគន្លឹះ Gemini API';
+  String get addGeminiApiKey => 'បន្ថែមពាក្រសំងាត់ Gemini API';
 
   @override
   String get keyAliasLabel => 'ឈ្មោះសម្គាល់ / ការពិពណ៌នា';
@@ -112,19 +112,19 @@ class AppLocalizationsKm extends AppLocalizations {
   String get tokenHint => 'AIzaSy...';
 
   @override
-  String get addApiKeyButton => 'បន្ថែមគន្លឹះ API';
+  String get addApiKeyButton => 'បន្ថែមពាក្រសំងាត់ API';
 
   @override
   String get invalidTokenMessage => 'សូមបញ្ចូលថេកូន Gemini ដែលត្រឹមត្រូវ។';
 
   @override
-  String get apiKeySavedMessage => 'បានរក្សាទុកគន្លឹះ Gemini API!';
+  String get apiKeySavedMessage => 'បានរក្សាទុកពាក្រសំងាត់ Gemini API!';
 
   @override
-  String get copyMaskedTokenTooltip => 'ចម្លងថេកូនដែលលាក់';
+  String get copyMaskedTokenTooltip => 'ចម្លងពាក្រសំងាត់ដែលលាក់';
 
   @override
-  String get deleteKeyTooltip => 'លុបគន្លឹះ';
+  String get deleteKeyTooltip => 'លុបពាក្រសំងាត់';
 
   @override
   String copiedTokenMessage(String token) {
@@ -157,10 +157,10 @@ class AppLocalizationsKm extends AppLocalizations {
   String get defaultGeminiModel => 'ម៉ូដែល Gemini លំនាំដើម';
 
   @override
-  String get khmerToneStyle => 'សំឡេង និងរចនាបថសម្រង់ខ្មែរ';
+  String get khmerToneStyle => 'សំឡេង និងរចនាបថបែបខ្មែរ';
 
   @override
-  String get keyRotationStrategy => 'យុទ្ធសាស្រ្តប្តូរគន្លឹះ';
+  String get keyRotationStrategy => 'យុទ្ធសាស្រ្តប្តូរពាក្រសំងាត់';
 
   @override
   String get selectSourceVideo => 'ជ្រើសរើសវីដេអូដើម';
@@ -191,10 +191,10 @@ class AppLocalizationsKm extends AppLocalizations {
   String get backgroundDucking => 'ការបន្ថយសំឡេងផ្ទៃក្រោយ';
 
   @override
-  String get resetDefaults => 'កំណត់ឡើងវិញ';
+  String get resetDefaults => 'កំណត់លំនាំដើមឡើងវិញ';
 
   @override
-  String get startDubbingButton => 'ចាប់ផ្តើមសម្រង់ខ្មែរ AI';
+  String get startDubbingButton => 'ចាប់ផ្តើមបកប្រែទៅភាសាខ្មែរដោយ AI';
 
   @override
   String get pipelineEstimate => '៤ ជំហាន • ពេលប៉ាន់ស្មាន: ~១នាទី ២០វិនាទី';
@@ -203,7 +203,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get clickToSelectSource => 'ចុចដើម្បីជ្រើសរើសវីដេអូដើមជាមុនសិន';
 
   @override
-  String get preparingPreview => 'កំពុងរៀបចំមើលជាមុន…';
+  String get preparingPreview => 'កំពុងរៀបចំវីដេអូមើលជាមុន…';
 
   @override
   String get clickToSelectVideo => 'ចុចដើម្បីជ្រើសរើសវីដេអូពីវិចិត្រសាល ឬឯកសារ';
@@ -212,7 +212,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get tapToPickVideo => 'ចុចដើម្បីជ្រើសរើសឯកសារវីដេអូពីឧបករណ៍របស់អ្នក';
 
   @override
-  String get replaceButton => 'ជំនួស';
+  String get replaceButton => 'ប្តូរវីដេអូ';
 
   @override
   String get unableToReadVideo => 'មិនអាចអានឯកសារវីដេអូដែលបានជ្រើសរើសបានទេ។';
@@ -235,12 +235,12 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String errorReleasingPreview(String error) {
-    return 'កំហុសនៅក្នុងការបញ្ឈប់មើលជាមុន: $error';
+    return 'កំហុសនៅក្នុងការផលិតវីដេអូ: $error';
   }
 
   @override
   String pipelineStartedFor(String video) {
-    return 'បានចាប់ផ្តើមប្រព័ន្ធសម្រង់សម្រាប់ $video!';
+    return 'បានចាប់ផ្តើមប្រព័ន្ធបកប្រែសម្រាប់ $video!';
   }
 
   @override
@@ -257,14 +257,14 @@ class AppLocalizationsKm extends AppLocalizations {
   String get terminateTooltip => 'បញ្ឈប់ដំណើរការ';
 
   @override
-  String get terminateFailedMessage => 'បានបញ្ឈប់ដំណើរការសម្រង់។';
+  String get terminateFailedMessage => 'បានបញ្ឈប់ដំណើរការបកប្រែ។';
 
   @override
-  String get removeDialogTitle => 'លុបចេញពីជួរ?';
+  String get removeDialogTitle => 'លុបចេញពីបញ្ជី?';
 
   @override
   String removeDialogBody(String title) {
-    return 'លុប \"$title\" ចេញពីជួរ? វីដេអូនេះមិនទាន់ចាប់ផ្តើមដំណើរការនៅឡើយ ដូច្នេះគ្មានអ្វីត្រូវរៀបចំសម្រាប់វាទេ។';
+    return 'លុប \"$title\" ចេញពីបញ្ចី? វីដេអូនេះមិនទាន់ចាប់ផ្តើមដំណើរការនៅឡើយ ដូច្នេះគ្មានអ្វីត្រូវរៀបចំសម្រាប់វាទេ។';
   }
 
   @override
@@ -272,36 +272,36 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String removedFromQueueMessage(String title) {
-    return 'បានលុប \"$title\" ចេញពីជួរ។ ការងារនេះមិននៅក្នុងជួរទៀតទេ។';
+    return 'បានលុប \"$title\" ចេញពីបញ្ចី។ ការងារនេះមិននៅក្នុងបញ្ចីទៀតទេ។';
   }
 
   @override
   String removedListedMessage(String title) {
-    return 'បានលុប \"$title\" ចេញពីជួរ។ ការងារនេះមិនត្រូវបានរាយនៅឡើយទេ។';
+    return 'បានលុប \"$title\" ចេញពីបញ្ចី។ ការងារនេះមិនត្រូវបានរាយនៅឡើយទេ។';
   }
 
   @override
   String get cancelButton => 'បោះបង់';
 
   @override
-  String get emptyQueueTitle => 'មិនមានការងារសម្រង់នៅឡើយទេ';
+  String get emptyQueueTitle => 'មិនមានការងារបកប្រែនៅឡើយទេ';
 
   @override
   String get emptyQueueBodyLead =>
-      'ជ្រើសរើសវីដេអូ និងសំឡេងនៅក្នុងផ្ទាំងសម្រង់ រួចចុច ';
+      'ជ្រើសរើសវីដេអូ និងសំឡេងនៅក្នុងផ្ទាំងបកប្រែរឿង រួចចុច ';
 
   @override
   String get emptyQueueBodyTail =>
-      '\"ចាប់ផ្តើមសម្រង់ខ្មែរ AI\" ដើម្បីចាប់ផ្តើមដំណើរការ។';
+      '\"ចាប់ផ្តើមបកប្រែទៅភាសារខ្មែរដោយ AI\" ដើម្បីចាប់ផ្តើមដំណើរការ។';
 
   @override
-  String get queueTitle => 'ជួរការសម្រង់';
+  String get queueTitle => 'បញ្ធីការងាការបកប្រែវីដេអូ';
 
   @override
   String get queueSubtitle => 'ម៉ូនិទ័រប្រព័ន្ធវីដេអូខ្មែរស្វ័យប្រវត្តិ';
 
   @override
-  String get syncLive => 'ផ្ទាល់ខ្លួន';
+  String get syncLive => 'ឡាយផ្ទាល់';
 
   @override
   String get stageProgression => 'ជំហានដំណើរការ';
@@ -334,7 +334,7 @@ class AppLocalizationsKm extends AppLocalizations {
       'កំពុងរង់ចាំកន្លែងធ្វើការ • នឹងដំណើរការបន្ទាប់ពីការរៀបចំបច្ចុប្បន្ន';
 
   @override
-  String get removeFromQueueTooltip => 'លុបចេញពីជួរ';
+  String get removeFromQueueTooltip => 'លុបចេញពីបញ្ចី';
 
   @override
   String get recentlyCompletedSection => 'បានបញ្ចប់ថ្មីៗ';
@@ -343,11 +343,11 @@ class AppLocalizationsKm extends AppLocalizations {
   String get playButton => 'លេង';
 
   @override
-  String get emptyPlayerTitle => 'មិនទាន់មានវីដេអូសម្រង់ទេ';
+  String get emptyPlayerTitle => 'មិនទាន់មានវីដេអូបកប្រែទេ';
 
   @override
   String get emptyPlayerBodyLead =>
-      'បញ្ចប់ការងារមួយនៅក្នុងជួរ រួចចុច \"លេង\" លើវាដើម្បីមើល ';
+      'បញ្ចប់ការងារមួយនៅក្នុងបញ្ចី រួចចុច \"លេង\" លើវាដើម្បីមើល ';
 
   @override
   String get emptyPlayerBodyTail => 'វីដេអូខ្មែរដែលបានរៀបចំនៅទីនេះ។';
@@ -379,7 +379,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String renderedVideoMissing(String path) {
-    return 'វីដេអូដែលបានរៀបចំលែងមាននៅលើថាសទៀតទេ:\n$path';
+    return 'វីដេអូដែលបានរៀបមិនមាននៅលើថាសទៀតទេ:\n$path';
   }
 
   @override
@@ -413,17 +413,18 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
-  String get licensePrompt => 'សូមបញ្ចូលគន្លឹះអាជ្ញាបណ្ណរបស់អ្នកដើម្បីបន្ត។';
+  String get licensePrompt =>
+      'សូមបញ្ចូលពាក្រសំងាត់អាជ្ញាបណ្ណរបស់អ្នកដើម្បីបន្ត។';
 
   @override
   String get activateTitle => 'សកម្មភាព CineDub AI';
 
   @override
   String get activateBody =>
-      'សូមបញ្ចូលគន្លឹះអាជ្ញាបណ្ណដែលអ្នកបានទទួល ដើម្បីសកម្មភាពឧបករណ៍នេះ។';
+      'សូមបញ្ចូលពាក្រសំងាត់អាជ្ញាបណ្ណដែលអ្នកបានទទួល ដើម្បីសកម្មភាពឧបករណ៍នេះ។';
 
   @override
-  String get licenseKeyLabel => 'គន្លឹះអាជ្ញាបណ្ណ';
+  String get licenseKeyLabel => 'ពាក្រសំងាត់អាជ្ញាបណ្ណ';
 
   @override
   String get licenseKeyHint => 'KD-XXXX-XXXX-XXXX';
@@ -432,16 +433,16 @@ class AppLocalizationsKm extends AppLocalizations {
   String get activateButton => 'សកម្មភាព';
 
   @override
-  String get stageTitle1 => '១. ចាន់យកសំឡេង';
+  String get stageTitle1 => '១. កាត់យកសំឡេង';
 
   @override
-  String get stageTitle2 => '២. អាន និងបកប្រែ';
+  String get stageTitle2 => '២. ស្តាប់ និងបកប្រែ';
 
   @override
-  String get stageTitle3 => '៣. បង្កើតសំឡេង';
+  String get stageTitle3 => '៣. បង្កើតសំឡេងភាសាខ្មែរ';
 
   @override
-  String get stageTitle4 => '៤. សាងវីដេអូ';
+  String get stageTitle4 => '៤. ផលិតវីដេអូភាសាខ្មែរ';
 
   @override
   String stageFallback(int index) {
@@ -464,49 +465,49 @@ class AppLocalizationsKm extends AppLocalizations {
   String get badgePending => 'រង់ចាំ';
 
   @override
-  String get failedDesc0 => 'ការចាន់យកសំឡេងបានបរាជ័យ';
+  String get failedDesc0 => 'ការកាត់យកសំឡេងបានបរាជ័យ';
 
   @override
-  String get failedDesc1 => 'ការអាន / ការបកប្រែបានបរាជ័យ';
+  String get failedDesc1 => 'ការស្តាប់ / ការបកប្រែបានបរាជ័យ';
 
   @override
-  String get failedDesc2 => 'ការបង្កើតសំឡេងបានបរាជ័យ';
+  String get failedDesc2 => 'ការបង្កើតសំឡេងភាសាខ្មែរបានបរាជ័យ';
 
   @override
   String get failedDesc3 => 'ការរៀបចំវីដេអូបានបរាជ័យ';
 
   @override
-  String get stage0Done => 'បានចាន់យកបណ្តាញសំឡេង WAV 48kHz';
+  String get stage0Done => 'បានកាត់យកបណ្តាញសំឡេង WAV 48kHz';
 
   @override
-  String get stage0Running => 'កំពុងចាន់យកបណ្តាញសំឡេងទៅ WAV 48kHz';
+  String get stage0Running => 'កំពុងកាត់យកបណ្តាញសំឡេងទៅ WAV 48kHz';
 
   @override
-  String get stage0Pending => 'កំពុងរង់ចាំការចាន់យកសំឡេង';
+  String get stage0Pending => 'កំពុងរង់ចាំការកាត់យកសំឡេង';
 
   @override
-  String get stage1Done => 'បានបញ្ចប់ការបកប្រែខ្មែរ';
+  String get stage1Done => 'បានបញ្ចប់ការបកប្រែភាសាខ្មែរ';
 
   @override
-  String get stage1Running => 'កំពុងបកប្រែសន្ទុះទៅខ្មែរ';
+  String get stage1Running => 'កំពុងបកប្រែសម្លេងទៅភាសាខ្មែរ';
 
   @override
-  String get stage1Pending => 'ការបកប្រែខ្មែរកំពុងរង់ចាំ';
+  String get stage1Pending => 'ការបកប្រែភាសាខ្មែរកំពុងរង់ចាំ';
 
   @override
-  String get stage2Done => 'បានរៀបចំសំឡេងខ្មែរ Edge-TTS';
+  String get stage2Done => 'បានរៀបចំសំឡេងភាសាខ្មែរ Edge-TTS';
 
   @override
-  String get stage2Running => 'កំពុងបង្កើតសំឡេង...';
+  String get stage2Running => 'កំពុងបង្កើតសំឡេងភាសារខ្មែរ...';
 
   @override
-  String get stage2Pending => 'ការបង្កើតសំឡេងកំពុងរង់ចាំ';
+  String get stage2Pending => 'ការបង្កើតសំឡេងភាសាខ្មែរកំពុងរង់ចាំ';
 
   @override
-  String get stage3Done => 'បានរៀបចំឯកសារ MP4 សម្រង់រួច';
+  String get stage3Done => 'បានរៀបចំឯកសារ MP4 បកប្រែរួច';
 
   @override
-  String get stage3Running => 'កំពុងបញ្ចូលវីដេអូ និងសំឡេងខ្មែរ';
+  String get stage3Running => 'កំពុងបញ្ចូលវីដេអូ និងសំឡេងភាសាខ្មែរ';
 
   @override
   String get stage3Pending => 'ការបញ្ចូលវីដេអូ និងសមតុល្យបបូរមាត្រកំពុងរង់ចាំ';
@@ -518,7 +519,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String waitingInQueue(int position) {
-    return 'កំពុងរង់ចាំនៅលំដាប់ទី $position ក្នុងជួរ';
+    return 'កំពុងរង់ចាំនៅលំដាប់ទី $position ក្នុងបញ្ចី';
   }
 
   @override
@@ -531,7 +532,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String queuedToRetry(String stage) {
-    return 'បានដាក់ក្នុងជួរដើម្បីសាកល្បងឡើងវិញពី $stage';
+    return 'បានដាក់ក្នុងបញ្ចីដើម្បីសាកល្បងឡើងវិញពី $stage';
   }
 
   @override
@@ -549,7 +550,8 @@ class AppLocalizationsKm extends AppLocalizations {
   String get fileOption => 'ពីឯកសារ';
 
   @override
-  String get couldNotReadVideo => 'មិនអាចអានឯកសារវីដេអូដែលបានជ្រើសរើសបានទេ។';
+  String get couldNotReadVideo =>
+      'មិនអាចតំណើការឯកសារវីដេអូដែលបានជ្រើសរើសបានទេ។';
 
   @override
   String get advancedAudioTuning => 'ការកំណត់សំឡេងលម្អិត';
@@ -565,23 +567,23 @@ class AppLocalizationsKm extends AppLocalizations {
       'តើអ្នកប្រាកដថាចង់បញ្ឈប់ការបកប្រែ និង TTS? នឹងបោះបង់ការរៀបចំវីដេអូបច្ចុប្បន្ន។';
 
   @override
-  String get processTerminated => 'ដំណើរការសម្រង់ត្រូវបានបញ្ឈប់។';
+  String get processTerminated => 'ដំណើរការបកប្រែត្រូវបានបញ្ឈប់។';
 
   @override
-  String get removeFromQueueTitle => 'លុបចេញពីជួរ?';
+  String get removeFromQueueTitle => 'លុបចេញពីបញ្ចី?';
 
   @override
   String removeFromQueueBody(Object title) {
-    return 'លុប \"$title\" ចេញពីជួរ? វីដេអូនេះមិនទាន់ចាប់ផ្តើមដំណើរការទេ ដូច្នេះមិនមានការរៀបចំអ្វីទេ។';
+    return 'លុប \"$title\" ចេញពីបញ្ចី? វីដេអូនេះមិនទាន់ចាប់ផ្តើមដំណើរការទេ ដូច្នេះមិនមានការរៀបចំអ្វីទេ។';
   }
 
   @override
   String removedFromQueue(Object title) {
-    return '\"$title\" ត្រូវបានលុបចេញពីជួរ។';
+    return '\"$title\" ត្រូវបានលុបចេញពីបញ្ចី។';
   }
 
   @override
-  String get jobNoLongerInQueue => 'ការងារនេះមិននៅក្នុងជួរទៀតទេ។';
+  String get jobNoLongerInQueue => 'ការងារនេះមិននៅក្នុងបញ្ចីទៀតទេ។';
 
   @override
   String get processingActiveTask => 'កំពុងដំណើរការ';
@@ -593,21 +595,21 @@ class AppLocalizationsKm extends AppLocalizations {
   String get failedJobs => 'ការងារបរាជ័យ';
 
   @override
-  String get liveBadge => 'ផ្ទាល់ខ្លួន';
+  String get liveBadge => 'ឡាយផ្ទាល់';
 
   @override
-  String get emptyStateEmptyQueue => 'មិនទាន់មានការងារសម្រង់ទេ';
+  String get emptyStateEmptyQueue => 'មិនទាន់មានការងារបកប្រែទេ';
 
   @override
   String get emptyStateEmptyQueueBody =>
-      'ជ្រើសរើសវីដេអូ និងសំឡេងនៅអេក្រង់ Dub រួចចុច \"Start AI Khmer Dubbing\" ដើម្បីចាប់ផ្តើម។';
+      'ជ្រើសរើសវីដេអូ និងសំឡេងនៅអេក្រង់ Dub រួចចុច \"ចាប់ផ្តើមបកប្រែទៅភាសារខ្មែរដោយ AI\" ដើម្បីចាប់ផ្តើម។';
 
   @override
-  String get emptyStateEmptyPlayer => 'មិនទាន់មានវីដេអូសម្រង់ទេ';
+  String get emptyStateEmptyPlayer => 'មិនទាន់មានវីដេអូបកប្រែទេ';
 
   @override
   String get emptyStateEmptyPlayerBody =>
-      'បញ្ចប់ការងារមួយនៅក្នុង Queue រួចចុច \"Play\" លើវាដើម្បីមើលខ្មែរសម្រង់នៅទីនេះ។';
+      'បញ្ចប់ការងារមួយនៅក្នុងបញ្ចីការងា រួចចុច \"Play\" លើវាដើម្បីមើលវីដេអូបកប្រែរួចនៅទីនេះ។';
 
   @override
   String get saveToGallery => 'រក្សាទុកទៅវិចិត្រសាល';
@@ -640,52 +642,52 @@ class AppLocalizationsKm extends AppLocalizations {
   String get selectVoiceModeTitle => 'ជ្រើសរើសរបៀបសំឡេង';
 
   @override
-  String get chunkEmptyTitle => 'មិនមានវីដេអូវាបានជ្រើសរើសទេ';
+  String get chunkEmptyTitle => 'មិនមានវីដេអូត្រូវបានជ្រើសរើសទេ';
 
   @override
   String get chunkEmptyBody =>
-      'ជ្រើសរើសឯកសារវីដេអូដើម្បីបំបែកវាជាញឹកញាប់ 7 នាទីដោយប្រើ AI សម្គាល់ភាពស្ងប់ស្ងាត់។';
+      'ជ្រើសរើសឯកសារវីដេអូដើម្បីបំបែកវាជាភាគ 7 នាទីដោយប្រើ AI កាត់ត្រងចំណុចស្ងាត់។';
 
   @override
   String get chunkSelectVideo => 'ជ្រើសរើសវីដេអូ';
 
   @override
-  String get chunkStartButton => 'ចាប់ផ្តើម AI Chunking';
+  String get chunkStartButton => 'ចាប់ផ្តើមបំបែករឿងពេញជារឿងភាគដោយ AI';
 
   @override
-  String get chunkProcessing => 'AI សកម្មកំពុងដំណើរការ...';
+  String get chunkProcessing => 'AI កំពុងដំណើរការ...';
 
   @override
-  String get chunkExtractingAudio => 'កំពុងແຫូរសំឡេង...';
+  String get chunkExtractingAudio => 'កំពុងកាត់សំឡេង...';
 
   @override
-  String get chunkDetectingSilence => 'កំពុងស្វែងរកចន្លោះស្ងប់...';
+  String get chunkDetectingSilence => 'កំពុងស្វែងរកចន្លោះស្ងាត់...';
 
   @override
-  String get chunkFindingCutPoint => 'កំពុងស្វែងរកចំណុចកាត់...';
+  String get chunkFindingCutPoint => 'កំពុងស្វែងរកចំណុចដែលត្រូវកាត់...';
 
   @override
-  String get chunkCuttingVideo => 'កំពុងបំបែកវីដេអូ...';
+  String get chunkCuttingVideo => 'កំពុងកាត់បំបែកវីដេអូ...';
 
   @override
-  String get chunkComplete => 'Chunking រួចរល់!';
+  String get chunkComplete => 'ការបំបែកវីដេអូ រួចរាល់!';
 
   @override
   String chunkChunksCreated(Object count) {
-    return '$count chunks បានបង្កើត';
+    return '$count ភាគ បានបង្កើត';
   }
 
   @override
   String get chunkClose => 'បិទ';
 
   @override
-  String get chunkError => 'Chunking បរាជ័យ';
+  String get chunkError => 'ការបំបែកវីដេអូ បរាជ័យ';
 
   @override
   String get chunkRestart => 'ចាប់ផ្តើមម្តងទៀត';
 
   @override
-  String get chunkClearAll => 'សម្អាតអស់';
+  String get chunkClearAll => 'សម្អាតទាំងអស់';
 
   @override
   String get chunkSaveToGallery => 'រក្សាទុកទៅវិចិត្រសាល';
