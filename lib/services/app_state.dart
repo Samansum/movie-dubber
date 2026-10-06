@@ -223,7 +223,7 @@ class AppState extends ChangeNotifier {
   // Only English and Khmer are offered. The choice is persisted so it survives
   // a restart, and [_appLocale] is what MaterialApp is given as its `locale`
   // plus what [stringsFor] uses for text produced outside the widget tree.
-  Locale _appLocale = const Locale('km');
+  Locale _appLocale = const Locale('en');
   Locale get appLocale => _appLocale;
 
   /// Whether the app is currently displaying Khmer.
