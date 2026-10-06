@@ -1321,6 +1321,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save to Gallery'**
   String get chunkSaveToGallery;
+
+  /// No description provided for @playVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get playVideo;
 }
 
 class _AppLocalizationsDelegate

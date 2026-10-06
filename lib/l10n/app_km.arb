@@ -215,7 +215,7 @@
   "pipelineError": "កំហុសប្រព័ន្ធ",
   "stageProgression": "ជំហានដំណើរការ",
   "cancelAction": "បោះបង់",
-  "selectVoiceModeTitle": "ជ្រើសរើសរបៀបសំឡេង",
+  "selectVoiceModeTitle": "ជ្រើសរើសប្រភេទសំឡេង",
   "voiceModeHint": "ជម្រើសតែមួយ • ច្រើនអ្នកនិយាយ ឬសំឡេងតែមួយ",
   "preparingPreview": "កំពុងរៀបចំវីដេអូមើលជាមុន…",
   "chunkEmptyTitle": "មិនមានវីដេអូត្រូវបានជ្រើសរើសទេ",
@@ -233,5 +233,6 @@
   "chunkError": "ការបំបែកវីដេអូ បរាជ័យ",
   "chunkRestart": "ចាប់ផ្តើមម្តងទៀត",
   "chunkClearAll": "សម្អាតទាំងអស់",
-  "chunkSaveToGallery": "រក្សាទុកទៅវិចិត្រសាល"
+  "chunkSaveToGallery": "រក្សាទុកទៅវិចិត្រសាល",
+  "playVideo": "ចាក់វិដេអូ"
 }

@@ -693,4 +693,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chunkSaveToGallery => 'Save to Gallery';
+
+  @override
+  String get playVideo => 'Play';
 }

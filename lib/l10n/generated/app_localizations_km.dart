@@ -639,7 +639,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get cancelAction => 'បោះបង់';
 
   @override
-  String get selectVoiceModeTitle => 'ជ្រើសរើសរបៀបសំឡេង';
+  String get selectVoiceModeTitle => 'ជ្រើសរើសប្រភេទសំឡេង';
 
   @override
   String get chunkEmptyTitle => 'មិនមានវីដេអូត្រូវបានជ្រើសរើសទេ';
@@ -691,4 +691,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get chunkSaveToGallery => 'រក្សាទុកទៅវិចិត្រសាល';
+
+  @override
+  String get playVideo => 'ចាក់វិដេអូ';
 }

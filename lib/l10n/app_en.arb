@@ -318,5 +318,6 @@
   "chunkError": "Chunking failed",
   "chunkRestart": "Restart",
   "chunkClearAll": "Clear All",
-  "chunkSaveToGallery": "Save to Gallery"
+  "chunkSaveToGallery": "Save to Gallery",
+  "playVideo": "Play"
 }

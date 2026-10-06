@@ -985,7 +985,7 @@ class QueueScreen extends StatelessWidget {
                         state.openTaskInPlayer(item);
                       },
                       child: Text(
-                        'Play',
+                        AppLocalizations.of(context).playVideo,
                         style: AppTypography.labelSm.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
