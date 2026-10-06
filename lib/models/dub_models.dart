@@ -186,7 +186,7 @@ class DubbingStageCatalog {
     );
   }
 
-  static String titleFor(int stageIndex, {Locale locale = const Locale('en')}) {
+  static String titleFor(int stageIndex, {Locale locale = const Locale('km')}) {
     if (stageIndex < 0 || stageIndex >= stageCount) {
       return stringsFor(locale).stageFallback(stageIndex + 1);
     }
