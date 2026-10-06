@@ -246,12 +246,6 @@ class QueueScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'SYNC LIVE',
-                      style: AppTypography.codeMono
-                          .copyWith(fontSize: 10, letterSpacing: 0.8),
-                    ),
                   ],
                 ),
               ),
@@ -443,6 +437,8 @@ class QueueScreen extends StatelessWidget {
                                       color: AppColors.onSurfaceVariant,
                                       fontSize: 11,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -489,8 +485,8 @@ class QueueScreen extends StatelessWidget {
                                 ),
                               Text(
                                 active.isProcessing
-                                    ? 'PROCESSING (${(active.progress * 100).toInt()}%)'
-                                    : 'COMPLETED (100%)',
+                                    ? '${(active.progress * 100).toInt()}%'
+                                    : '100%',
                                 style: AppTypography.labelSm.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w800,

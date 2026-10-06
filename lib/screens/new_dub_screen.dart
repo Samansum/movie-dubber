@@ -1131,7 +1131,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     ],
                   )
                 : Text(
-                    'Sample: «${profile.khmerSampleText}»',
+                    '«${profile.khmerSampleText}»',
                     style: AppTypography.bodySm.copyWith(
                       color: AppColors.onSurfaceVariant,
                       fontSize: 11,
@@ -1221,43 +1221,12 @@ class _NewDubScreenState extends State<NewDubScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  profile.name,
-                                  style: AppTypography.headlineSm.copyWith(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: profile.type == VoiceType.autoCast
-                                        ? AppColors.tertiaryContainer
-                                            .withOpacity(0.3)
-                                        : (profile.type == VoiceType.male
-                                            ? AppColors.primary.withOpacity(0.2)
-                                            : AppColors.secondary
-                                                .withOpacity(0.2)),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    profile.badgeText,
-                                    style: AppTypography.labelSm.copyWith(
-                                      color: profile.type == VoiceType.autoCast
-                                          ? AppColors.tertiary
-                                          : (profile.type == VoiceType.male
-                                              ? AppColors.primary
-                                              : AppColors.secondary),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              profile.name,
+                              style: AppTypography.headlineSm.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(

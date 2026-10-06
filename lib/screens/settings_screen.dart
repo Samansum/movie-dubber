@@ -139,22 +139,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.tertiaryContainer.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'High Concurrency',
-                              style: AppTypography.labelSm.copyWith(
-                                color: AppColors.tertiary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 4),

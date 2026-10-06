@@ -36,7 +36,7 @@ class VoiceProfile {
     imagePath: '',
     roleTag: 'Auto-Cast Engine',
     badgeText: 'Auto-Cast',
-    khmerSampleText: 'ស្វ័យប្រវត្តិកំណត់សំឡេងតួអង្គ',
+    khmerSampleText: 'កំណត់សំឡេងតួអង្គស្វ័យប្រវត្តិ',
     durationText: 'Auto',
     description:
         'Smart auto-detects male and female character voices automatically.',
