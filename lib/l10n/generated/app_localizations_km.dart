@@ -683,4 +683,10 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get chunkRestart => 'ចាប់ផ្តើមម្តងទៀត';
+
+  @override
+  String get chunkClearAll => 'សម្អាតអស់';
+
+  @override
+  String get chunkSaveToGallery => 'រក្សាទុកទៅវិចិត្រសាល';
 }

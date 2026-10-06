@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 
@@ -6,6 +7,7 @@ import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:ffmpeg_kit_flutter_new/session.dart';
+import 'package:gal/gal.dart';
 
 class SilenceGap {
   final double startTime;
@@ -47,18 +49,32 @@ class VideoChunkingService {
     _state = ChunkState.idle; _statusLog = 'Cancelled.';
   }
 
-  Future<ChunkResult> chunkVideo({required String videoPath, required String outputDir, VoidCallback? onCancelled}) async {
+  Future<ChunkResult> chunkVideo({
+    required String videoPath,
+    required String outputDir,
+    required String videoName,
+    VoidCallback? onCancelled,
+  }) async {
     _resetState();
     try {
-      final workDir = '$outputDir/chunk_${DateTime.now().millisecondsSinceEpoch}';
-      await Directory(workDir).create(recursive: true);
-      final outDir = '$workDir/chunks';
+      // Request gallery access once at start
+      try {
+        if (!await Gal.hasAccess(toAlbum: true)) {
+          await Gal.requestAccess(toAlbum: true);
+        }
+      } catch (_) {
+        // Ignore — gallery is optional for chunking to succeed
+      }
+
+      final baseDir = '$outputDir/chunk_${DateTime.now().millisecondsSinceEpoch}';
+      await Directory(baseDir).create(recursive: true);
+      final outDir = '$baseDir/chunks';
       await Directory(outDir).create(recursive: true);
       _setState(ChunkState.extractingAudio, 'Extracting audio...'); _setProgress(0.1);
-      await _runFfmpeg('-y -i "$videoPath" -vn -ac 1 -ar 16000 -c:a pcm_s16le "$workDir/a.wav"');
+      await _runFfmpeg('-y -i "$videoPath" -vn -ac 1 -ar 16000 -c:a pcm_s16le "$baseDir/a.wav"');
       if (_cancelled) { onCancelled?.call(); return const ChunkResult(chunkPaths: [], totalDuration: 0); }
       _setState(ChunkState.detectingSilence, 'Detecting silence gaps...'); _setProgress(0.3);
-      final gaps = await _detectSilence('$workDir/a.wav');
+      final gaps = await _detectSilence('$baseDir/a.wav');
       final dur = await _probeDur(videoPath) ?? 420.0;
       _setState(ChunkState.findingCutPoint, 'Finding cut points...'); _setProgress(0.6);
       final cuts = await _findCuts(gaps: gaps, totalDur: dur);
@@ -66,9 +82,42 @@ class VideoChunkingService {
       _setState(ChunkState.cuttingVideo, 'Splitting video...'); _setProgress(0.8);
       final paths = await _splitVideo(source: videoPath, cuts: cuts, dir: outDir);
       if (_cancelled) { onCancelled?.call(); return const ChunkResult(chunkPaths: [], totalDuration: 0); }
+
+      // Copy chunks to final output directory with Part_NN naming & export directly to Gallery
+      final finalDir = outputDir;
+      await Directory(finalDir).create(recursive: true);
+      final finalPaths = <String>[];
+      for (var i = 0; i < paths.length; i++) {
+        final partNum = (i + 1).toString().padLeft(2, '0');
+        final finalPath = '$finalDir/Part_$partNum.mp4';
+        await File(paths[i]).copy(finalPath);
+        // Export directly to Gallery album named after the video
+        try {
+          await Gal.putVideo(finalPath, album: videoName);
+        } catch (e) {
+          log('Gallery export failed for $finalPath: $e');
+        }
+        // Clean up temp chunk file
+        await File(paths[i]).delete();
+        finalPaths.add(finalPath);
+      }
+
+      // Clean up entire temp directory (audio file + intermediate chunk files)
+      try {
+        final baseDirObj = Directory(baseDir);
+        if (baseDirObj.existsSync()) {
+          await baseDirObj.delete(recursive: true);
+        }
+      } catch (e) {
+        log('Failed to clean temp dir $baseDir: $e');
+      }
+
       _setState(ChunkState.completed, 'Done!'); _setProgress(1.0);
-      return ChunkResult(chunkPaths: paths, totalDuration: dur);
-    } catch (e) { if (!_cancelled) _setState(ChunkState.failed, e.toString()); rethrow; }
+      return ChunkResult(chunkPaths: finalPaths, totalDuration: dur);
+    } catch (e) {
+      if (!_cancelled) _setState(ChunkState.failed, e.toString());
+      rethrow;
+    }
   }
 
   void _resetState() { _state = ChunkState.idle; _progress = 0; _statusLog = ''; _cancelled = false; }

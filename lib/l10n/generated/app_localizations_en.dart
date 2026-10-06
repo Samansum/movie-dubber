@@ -687,4 +687,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chunkRestart => 'Restart';
+
+  @override
+  String get chunkClearAll => 'Clear All';
+
+  @override
+  String get chunkSaveToGallery => 'Save to Gallery';
 }

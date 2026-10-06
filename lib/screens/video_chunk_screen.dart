@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
+
 import '../l10n/app_l10n.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
@@ -27,6 +29,10 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
   List<String>? _resultChunks;
   bool _isPlaying = false;
   Timer? _progressTimer;
+  // Per-chunk playback state
+  Map<String, VideoPlayerController?> _chunkPlayers = {};
+  Set<String> _playingChunks = {};
+  Map<String, VoidCallback> _chunkListeners = {};
 
   bool get _hasVideo => _videoAsset != null;
 
@@ -48,6 +54,16 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     widget.state.removeListener(_handleTabChange);
     _videoController?.removeListener(_onCtrlUpdate);
     _videoController?.dispose();
+    // Dispose all chunk players and their listeners
+    for (final entry in _chunkListeners.entries) {
+      final player = _chunkPlayers[entry.key];
+      if (player != null) {
+        player.removeListener(entry.value);
+        player.dispose();
+      }
+    }
+    _chunkPlayers.clear();
+    _chunkListeners.clear();
     super.dispose();
   }
 
@@ -74,6 +90,79 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     } else if (v.isCompleted && _isPlaying) {
       setState(() => _isPlaying = false);
     }
+  }
+
+  void _onChunkCtrlUpdate(String chunkPath) {
+    final player = _chunkPlayers[chunkPath];
+    if (player == null) return;
+    final v = player.value;
+    if (v.isInitialized) {
+      final isPlaying = player.value.isPlaying;
+      setState(() {
+        if (isPlaying) {
+          _playingChunks.add(chunkPath);
+        } else {
+          _playingChunks.remove(chunkPath);
+        }
+      });
+    }
+  }
+
+  Future<void> _playChunk(String path) async {
+    // Stop current playback first
+    for (final otherPath in _playingChunks.toList()) {
+      if (otherPath != path) {
+        final otherPlayer = _chunkPlayers[otherPath];
+        if (otherPlayer != null) {
+          await otherPlayer.pause();
+        }
+      }
+    }
+
+    var player = _chunkPlayers[path];
+    if (player == null || !player.value.isInitialized) {
+      try {
+        final c = VideoPlayerController.file(File(path));
+        await c.initialize();
+        await c.setLooping(false);
+        final listener = () => _onChunkCtrlUpdate(path);
+        c.addListener(listener);
+        _chunkListeners[path] = listener;
+        player = c;
+        _chunkPlayers[path] = player;
+      } catch (e) {
+        debugPrint('Chunk play error: $e');
+        return;
+      }
+    }
+
+    final p = _chunkPlayers[path];
+    if (p == null) return;
+    if (p.value.isPlaying) {
+      await p.pause();
+      setState(() => _playingChunks.remove(path));
+    } else {
+      await p.seekTo(Duration.zero);
+      await p.play();
+      setState(() => _playingChunks.add(path));
+    }
+  }
+
+  Future<void> _clearAllResults() async {
+    // Dispose all chunk players and their listeners
+    for (final entry in _chunkListeners.entries) {
+      final player = _chunkPlayers[entry.key];
+      if (player != null) {
+        player.removeListener(entry.value);
+        await player.dispose();
+      }
+    }
+    _chunkPlayers.clear();
+    _chunkListeners.clear();
+    _playingChunks.clear();
+    setState(() {
+      _resultChunks = null;
+    });
   }
 
   Future<void> _pickVideo() async {
@@ -146,8 +235,10 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       _resultChunks = null;
     });
 
-    final cd = await getApplicationCacheDirectory();
-    final od = '${cd.path}/chunk_${DateTime.now().millisecondsSinceEpoch}';
+    // Create Videos/Chunks/<video name>/ output directory in app documents dir
+    final docsDir = await getApplicationDocumentsDirectory();
+    final videoName = _videoAsset!.fileName.split('.').first;
+    final outputDir = '${docsDir.path}/Videos/Chunks/$videoName';
     final svc = VideoChunkingService();
 
     _progressTimer?.cancel();
@@ -166,7 +257,8 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     try {
       final res = await svc.chunkVideo(
         videoPath: _videoAsset!.filePath,
-        outputDir: od,
+        outputDir: outputDir,
+        videoName: videoName,
         onCancelled: () {},
       );
       _progressTimer?.cancel();
@@ -181,7 +273,7 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context).chunkComplete} ${res.chunkPaths.length} chunks created',
+              '${AppLocalizations.of(context).chunkComplete} ${res.chunkPaths.length} chunks created • Saved to Gallery',
               style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
             ),
             backgroundColor: AppColors.surfaceContainerLowest,
@@ -282,25 +374,50 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isProcessing ? null : _startChunk,
-              icon: _isProcessing
-                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
-                  : const Icon(Icons.auto_awesome_rounded, size: 20),
-              label: Text(
-                _isProcessing ? AppLocalizations.of(ctx).chunkProcessing : AppLocalizations.of(ctx).chunkStartButton,
-                style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w700),
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                tooltip: AppLocalizations.of(ctx).replaceButton,
+                onPressed: _isProcessing ? null : _pickVideo,
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isProcessing ? AppColors.primary.withOpacity(0.7) : AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              const SizedBox(width: 8), // Optional spacing between icon and button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isProcessing ? null : _startChunk,
+                  icon: _isProcessing
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                      : const Icon(Icons.auto_awesome_rounded, size: 20),
+                  label: Text(
+                    _isProcessing
+                        ? AppLocalizations.of(ctx).chunkProcessing
+                        : AppLocalizations.of(ctx).chunkStartButton,
+                    style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isProcessing
+                        ? AppColors.primary.withOpacity(0.7)
+                        : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48), // Properly constrained by Expanded
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
+        ),
           if (_isProcessing) ...[
             const SizedBox(height: 12),
             ClipRRect(
@@ -334,6 +451,24 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
             Text(l10n.chunkComplete, style: AppTypography.headlineSm.copyWith(fontWeight: FontWeight.w700, color: AppColors.tertiary))]),
           const SizedBox(height: 4),
           Text('${_resultChunks!.length} ${l10n.chunkChunksCreated}', style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          // Chunks saved to Gallery confirmation
+          Row(children: [const Icon(Icons.cloud_done_rounded, color: AppColors.secondary, size: 16), const SizedBox(width: 6),
+            Text('Saved to Gallery (Movies/${_videoAsset!.fileName.split('.').first}/)',
+                style: AppTypography.bodySm.copyWith(color: AppColors.secondary, fontSize: 11))]),
+          const SizedBox(height: 12),
+          // Clear/Reset button
+          OutlinedButton.icon(
+            onPressed: _clearAllResults,
+            icon: const Icon(Icons.clear_all_rounded, size: 18),
+            label: Text(l10n.chunkClearAll, style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.onSurfaceVariant,
+              side: BorderSide(color: AppColors.outline.withOpacity(0.4)),
+              minimumSize: const Size.fromHeight(40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ]),
       ),
       const SizedBox(height: 12),
@@ -345,7 +480,15 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
           leading: const Icon(Icons.video_file_rounded, color: AppColors.primary, size: 20),
           title: Text(p.split('/').last, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w500)),
           subtitle: Text(_fmtSize(File(p).lengthSync()), style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
-          trailing: IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error), onPressed: () => _delp(p)),
+          trailing: IconButton(
+            icon: Icon(
+              _playingChunks.contains(p) ? Icons.stop_rounded : Icons.play_circle_outline_rounded,
+              color: AppColors.secondary,
+              size: 28,
+            ),
+            tooltip: _playingChunks.contains(p) ? 'Stop' : 'Play',
+            onPressed: () => _playChunk(p),
+          ),
         ),
       )),
       const SizedBox(height: 12),
@@ -372,11 +515,6 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
   Future<void> _togglePlay() async {
     if (_isPlaying) await _pauseVid();
     else await _playVid();
-  }
-
-  void _delp(String p) {
-    try { File(p).deleteSync(); setState(() => _resultChunks?.remove(p)); }
-    catch (e) { debugPrint('Del err: $e'); }
   }
 
   @override

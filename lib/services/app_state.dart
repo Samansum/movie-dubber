@@ -205,6 +205,20 @@ class AppState extends ChangeNotifier {
   String? _saveGalleryError;
   String? get saveGalleryError => _saveGalleryError;
 
+  // Chunk gallery export state
+  String _chunkGalleryExportState = 'idle'; // 'idle', 'exporting', 'exported', 'error'
+  String get chunkGalleryExportState => _chunkGalleryExportState;
+
+  String? _chunkGalleryExportError;
+  String? get chunkGalleryExportError => _chunkGalleryExportError;
+
+  int _chunkGalleryExportedCount = 0;
+  int get chunkGalleryExportedCount => _chunkGalleryExportedCount;
+
+  int _chunkGalleryTotalToExport = 0;
+  int get chunkGalleryTotalToExport => _chunkGalleryTotalToExport;
+
+
   // Settings & API Keys (Default to empty list, no dummy keys)
   final List<ApiKeyItem> _apiKeys = [];
   List<ApiKeyItem> get apiKeys => List.unmodifiable(_apiKeys);
@@ -1051,6 +1065,74 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  /// Exports chunked videos to the device's public Gallery.
+  ///
+  /// Uses each chunk's folder name as the album, so `Videos/Chunks/movieName/Part_01.mp4`
+  /// is saved to `Movies/movieName/Part_01.mp4`. This keeps chunks for one video together.
+  Future<void> exportChunksToGallery(List<String> chunkPaths) async {
+    if (chunkPaths.isEmpty) return;
+
+    _chunkGalleryExportState = 'exporting';
+    _chunkGalleryExportedCount = 0;
+    _chunkGalleryTotalToExport = chunkPaths.length;
+    _chunkGalleryExportError = null;
+    notifyListeners();
+
+    try {
+      // Request access once before batch export
+      if (!await Gal.hasAccess(toAlbum: true)) {
+        await Gal.requestAccess(toAlbum: true);
+      }
+
+      for (final chunkPath in chunkPaths) {
+        final source = File(chunkPath);
+        if (!source.existsSync()) {
+          debugPrint('Chunk file missing, skipping: $chunkPath');
+          continue;
+        }
+        try {
+          // Extract video name from path — handle both / and \ separators
+          var album = 'CineDub AI';
+          final normalized = chunkPath.replaceAll(r'\', '/');
+          final segments = normalized.split('/');
+          // Find 'Chunks' in path and take the next segment as album name
+          for (var i = 0; i < segments.length - 1; i++) {
+            if (segments[i] == 'Chunks') {
+              album = segments[i + 1];
+              break;
+            }
+          }
+          await Gal.putVideo(chunkPath, album: album);
+          _chunkGalleryExportedCount++;
+        } catch (e) {
+          debugPrint('Failed to export chunk $chunkPath: $e');
+        }
+      }
+
+      _chunkGalleryExportState = _chunkGalleryExportedCount > 0 ? 'exported' : 'error';
+      if (_chunkGalleryExportedCount == 0 && chunkPaths.isNotEmpty) {
+        _chunkGalleryExportError = 'None of the chunks could be exported to Gallery.';
+      }
+    } on GalException catch (e) {
+      _chunkGalleryExportState = 'error';
+      _chunkGalleryExportError = '${e.type.message}\n(${e.type.name})';
+    } catch (e) {
+      _chunkGalleryExportState = 'error';
+      _chunkGalleryExportError = e.toString();
+    }
+
+    notifyListeners();
+  }
+
+  void resetChunkGalleryExport() {
+    _chunkGalleryExportState = 'idle';
+    _chunkGalleryExportedCount = 0;
+    _chunkGalleryTotalToExport = 0;
+    _chunkGalleryExportError = null;
+    notifyListeners();
+  }
+
 
   // Settings & Keys
   void setSelectedModel(String model) {

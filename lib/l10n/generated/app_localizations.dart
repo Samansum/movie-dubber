@@ -1309,6 +1309,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restart'**
   String get chunkRestart;
+
+  /// No description provided for @chunkClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get chunkClearAll;
+
+  /// No description provided for @chunkSaveToGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Gallery'**
+  String get chunkSaveToGallery;
 }
 
 class _AppLocalizationsDelegate

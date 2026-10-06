@@ -316,5 +316,7 @@
   "chunkChunksCreated": "{count} chunks created",
   "chunkClose": "Close",
   "chunkError": "Chunking failed",
-  "chunkRestart": "Restart"
+  "chunkRestart": "Restart",
+  "chunkClearAll": "Clear All",
+  "chunkSaveToGallery": "Save to Gallery"
 }
