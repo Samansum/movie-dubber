@@ -27,6 +27,9 @@ class AppLocalizationsKm extends AppLocalizations {
   String get tabSettings => 'ការកំណត់';
 
   @override
+  String get tabChunking => 'ចែក';
+
+  @override
   String get screenHomeTitle => 'CineDub AI';
 
   @override
@@ -49,6 +52,12 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get screenSettingsSubtitle => 'ការកំណត់ Gemini និង TTS';
+
+  @override
+  String get screenChunkingTitle => 'ការបំបែកវីដេអូ';
+
+  @override
+  String get screenChunkingSubtitle => 'ប្រព័ន្ធជែកដោយ AI';
 
   @override
   String get back => 'ត្រឡប់ក្រោយ';
@@ -629,4 +638,49 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get selectVoiceModeTitle => 'ជ្រើសរើសរបៀបសំឡេង';
+
+  @override
+  String get chunkEmptyTitle => 'មិនមានវីដេអូវាបានជ្រើសរើសទេ';
+
+  @override
+  String get chunkEmptyBody =>
+      'ជ្រើសរើសឯកសារវីដេអូដើម្បីបំបែកវាជាញឹកញាប់ 7 នាទីដោយប្រើ AI សម្គាល់ភាពស្ងប់ស្ងាត់។';
+
+  @override
+  String get chunkSelectVideo => 'ជ្រើសរើសវីដេអូ';
+
+  @override
+  String get chunkStartButton => 'ចាប់ផ្តើម AI Chunking';
+
+  @override
+  String get chunkProcessing => 'AI សកម្មកំពុងដំណើរការ...';
+
+  @override
+  String get chunkExtractingAudio => 'កំពុងແຫូរសំឡេង...';
+
+  @override
+  String get chunkDetectingSilence => 'កំពុងស្វែងរកចន្លោះស្ងប់...';
+
+  @override
+  String get chunkFindingCutPoint => 'កំពុងស្វែងរកចំណុចកាត់...';
+
+  @override
+  String get chunkCuttingVideo => 'កំពុងបំបែកវីដេអូ...';
+
+  @override
+  String get chunkComplete => 'Chunking រួចរល់!';
+
+  @override
+  String chunkChunksCreated(Object count) {
+    return '$count chunks បានបង្កើត';
+  }
+
+  @override
+  String get chunkClose => 'បិទ';
+
+  @override
+  String get chunkError => 'Chunking បរាជ័យ';
+
+  @override
+  String get chunkRestart => 'ចាប់ផ្តើមម្តងទៀត';
 }

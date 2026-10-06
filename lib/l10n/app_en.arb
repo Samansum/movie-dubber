@@ -1,4 +1,4 @@
-{
+﻿{
   "@@locale": "en",
   "appName": "CineDub AI",
   "appTagline": "Khmer Engine",
@@ -6,6 +6,7 @@
   "tabQueue": "Queue",
   "tabPlayer": "Player",
   "tabSettings": "Settings",
+  "tabChunking": "Chunk",
 
   "screenHomeTitle": "CineDub AI",
   "screenHomeSubtitle": "Khmer Engine",
@@ -15,6 +16,8 @@
   "screenPlayerSubtitle": "Studio Player",
   "screenSettingsTitle": "Dubbing Settings",
   "screenSettingsSubtitle": "Gemini & TTS Config",
+  "screenChunkingTitle": "Video Chunking",
+  "screenChunkingSubtitle": "AI-Powered Splitter",
 
   "back": "Back",
   "languageSectionTitle": "App Language / ភាសា",
@@ -299,5 +302,19 @@
   "cancelAction": "Cancel",
   "selectVoiceModeTitle": "Select Voice Mode",
   "voiceModeHint": "Single Choice • Multi-Speaker Cast or Solo Voice",
-  "preparingPreview": "Preparing video preview…"
+  "preparingPreview": "Preparing video preview…",
+  "chunkEmptyTitle": "No video selected",
+  "chunkEmptyBody": "Pick a video file to split it into 7-minute chunks using AI silence detection.",
+  "chunkSelectVideo": "Select Video",
+  "chunkStartButton": "Start AI Chunking",
+  "chunkProcessing": "AI is processing...",
+  "chunkExtractingAudio": "Extracting audio...",
+  "chunkDetectingSilence": "Detecting silence gaps...",
+  "chunkFindingCutPoint": "Finding optimal cut point...",
+  "chunkCuttingVideo": "Splitting video...",
+  "chunkComplete": "Chunking complete!",
+  "chunkChunksCreated": "{count} chunks created",
+  "chunkClose": "Close",
+  "chunkError": "Chunking failed",
+  "chunkRestart": "Restart"
 }

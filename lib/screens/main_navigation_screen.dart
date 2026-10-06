@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
@@ -8,6 +8,7 @@ import 'new_dub_screen.dart';
 import 'queue_screen.dart';
 import 'completed_player_screen.dart';
 import 'settings_screen.dart';
+import 'video_chunk_screen.dart';
 
 class MainNavigationScreen extends StatelessWidget {
   final AppState state;
@@ -45,6 +46,10 @@ class MainNavigationScreen extends StatelessWidget {
             screenTitle = l10n.screenSettingsTitle;
             screenSubtitle = l10n.screenSettingsSubtitle;
             break;
+          case 4:
+            screenTitle = l10n.screenChunkingTitle;
+            screenSubtitle = l10n.screenChunkingSubtitle;
+            break;
         }
 
         final List<Widget> screens = [
@@ -52,6 +57,7 @@ class MainNavigationScreen extends StatelessWidget {
           QueueScreen(state: state),
           CompletedPlayerScreen(state: state),
           SettingsScreen(state: state),
+          VideoChunkScreen(state: state),
         ];
 
         return Scaffold(
@@ -59,8 +65,9 @@ class MainNavigationScreen extends StatelessWidget {
           appBar: AppHeader(
             title: screenTitle,
             subtitle: screenSubtitle,
-            showBackButton: state.currentTabIndex != 0,
+            showBackButton: _showBackButton(state.currentTabIndex),
             onBack: () => state.setTabIndex(0),
+            onSettingsTap: () => state.setTabIndex(3),
           ),
           body: Stack(
             children: [
@@ -125,11 +132,11 @@ class MainNavigationScreen extends StatelessWidget {
                         onTap: () => state.setTabIndex(2),
                       ),
                       _buildNavItem(
-                        index: 3,
-                        icon: Icons.tune_rounded,
-                        label: l10n.tabSettings,
-                        isSelected: state.currentTabIndex == 3,
-                        onTap: () => state.setTabIndex(3),
+                        index: 4,
+                        icon: Icons.layers_rounded,
+                        label: l10n.tabChunking,
+                        isSelected: state.currentTabIndex == 4,
+                        onTap: () => state.setTabIndex(4),
                       ),
                     ],
                   ),
@@ -140,6 +147,11 @@ class MainNavigationScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Whether to show the back button in the header for the current tab.
+  bool _showBackButton(int tabIndex) {
+    return tabIndex != 0 && tabIndex != 4; // Don't show on Dub or Chunking
   }
 
   Widget _buildNavItem({

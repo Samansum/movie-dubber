@@ -1,4 +1,4 @@
-{
+﻿{
   "@@locale": "km",
 
   "appName": "CineDub AI",
@@ -7,6 +7,7 @@
   "tabQueue": "ជួរ",
   "tabPlayer": "បង្ហាញ",
   "tabSettings": "ការកំណត់",
+  "tabChunking": "ចែក",
 
   "screenHomeTitle": "CineDub AI",
   "screenHomeSubtitle": "ម៉ាស៊ីនខ្មែរ",
@@ -16,6 +17,8 @@
   "screenPlayerSubtitle": "ស្ដូឌីអ្នកលេង",
   "screenSettingsTitle": "ការកំណត់សម្រង់",
   "screenSettingsSubtitle": "ការកំណត់ Gemini និង TTS",
+  "screenChunkingTitle": "ការបំបែកវីដេអូ",
+  "screenChunkingSubtitle": "ប្រព័ន្ធជែកដោយ AI",
 
   "back": "ត្រឡប់ក្រោយ",
 
@@ -214,5 +217,19 @@
   "cancelAction": "បោះបង់",
   "selectVoiceModeTitle": "ជ្រើសរើសរបៀបសំឡេង",
   "voiceModeHint": "ជម្រើសតែមួយ • ច្រើនអ្នកនិយាយ ឬសំឡេងតែមួយ",
-  "preparingPreview": "កំពុងរៀបចំមើលជាមុន…"
+  "preparingPreview": "កំពុងរៀបចំមើលជាមុន…",
+  "chunkEmptyTitle": "មិនមានវីដេអូវាបានជ្រើសរើសទេ",
+  "chunkEmptyBody": "ជ្រើសរើសឯកសារវីដេអូដើម្បីបំបែកវាជាញឹកញាប់ 7 នាទីដោយប្រើ AI សម្គាល់ភាពស្ងប់ស្ងាត់។",
+  "chunkSelectVideo": "ជ្រើសរើសវីដេអូ",
+  "chunkStartButton": "ចាប់ផ្តើម AI Chunking",
+  "chunkProcessing": "AI សកម្មកំពុងដំណើរការ...",
+  "chunkExtractingAudio": "កំពុងແຫូរសំឡេង...",
+  "chunkDetectingSilence": "កំពុងស្វែងរកចន្លោះស្ងប់...",
+  "chunkFindingCutPoint": "កំពុងស្វែងរកចំណុចកាត់...",
+  "chunkCuttingVideo": "កំពុងបំបែកវីដេអូ...",
+  "chunkComplete": "Chunking រួចរល់!",
+  "chunkChunksCreated": "{count} chunks បានបង្កើត",
+  "chunkClose": "បិទ",
+  "chunkError": "Chunking បរាជ័យ",
+  "chunkRestart": "ចាប់ផ្តើមម្តងទៀត"
 }

@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get tabSettings;
 
+  /// No description provided for @tabChunking.
+  ///
+  /// In en, this message translates to:
+  /// **'Chunk'**
+  String get tabChunking;
+
   /// No description provided for @screenHomeTitle.
   ///
   /// In en, this message translates to:
@@ -181,6 +187,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Gemini & TTS Config'**
   String get screenSettingsSubtitle;
+
+  /// No description provided for @screenChunkingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Chunking'**
+  String get screenChunkingTitle;
+
+  /// No description provided for @screenChunkingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI-Powered Splitter'**
+  String get screenChunkingSubtitle;
 
   /// No description provided for @back.
   ///
@@ -1207,6 +1225,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Voice Mode'**
   String get selectVoiceModeTitle;
+
+  /// No description provided for @chunkEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No video selected'**
+  String get chunkEmptyTitle;
+
+  /// No description provided for @chunkEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a video file to split it into 7-minute chunks using AI silence detection.'**
+  String get chunkEmptyBody;
+
+  /// No description provided for @chunkSelectVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Video'**
+  String get chunkSelectVideo;
+
+  /// No description provided for @chunkStartButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Start AI Chunking'**
+  String get chunkStartButton;
+
+  /// No description provided for @chunkProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'AI is processing...'**
+  String get chunkProcessing;
+
+  /// No description provided for @chunkExtractingAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Extracting audio...'**
+  String get chunkExtractingAudio;
+
+  /// No description provided for @chunkDetectingSilence.
+  ///
+  /// In en, this message translates to:
+  /// **'Detecting silence gaps...'**
+  String get chunkDetectingSilence;
+
+  /// No description provided for @chunkFindingCutPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding optimal cut point...'**
+  String get chunkFindingCutPoint;
+
+  /// No description provided for @chunkCuttingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Splitting video...'**
+  String get chunkCuttingVideo;
+
+  /// No description provided for @chunkComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Chunking complete!'**
+  String get chunkComplete;
+
+  /// No description provided for @chunkChunksCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} chunks created'**
+  String chunkChunksCreated(Object count);
+
+  /// No description provided for @chunkClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get chunkClose;
+
+  /// No description provided for @chunkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Chunking failed'**
+  String get chunkError;
+
+  /// No description provided for @chunkRestart.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart'**
+  String get chunkRestart;
 }
 
 class _AppLocalizationsDelegate

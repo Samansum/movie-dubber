@@ -27,6 +27,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabSettings => 'Settings';
 
   @override
+  String get tabChunking => 'Chunk';
+
+  @override
   String get screenHomeTitle => 'CineDub AI';
 
   @override
@@ -49,6 +52,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenSettingsSubtitle => 'Gemini & TTS Config';
+
+  @override
+  String get screenChunkingTitle => 'Video Chunking';
+
+  @override
+  String get screenChunkingSubtitle => 'AI-Powered Splitter';
 
   @override
   String get back => 'Back';
@@ -633,4 +642,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectVoiceModeTitle => 'Select Voice Mode';
+
+  @override
+  String get chunkEmptyTitle => 'No video selected';
+
+  @override
+  String get chunkEmptyBody =>
+      'Pick a video file to split it into 7-minute chunks using AI silence detection.';
+
+  @override
+  String get chunkSelectVideo => 'Select Video';
+
+  @override
+  String get chunkStartButton => 'Start AI Chunking';
+
+  @override
+  String get chunkProcessing => 'AI is processing...';
+
+  @override
+  String get chunkExtractingAudio => 'Extracting audio...';
+
+  @override
+  String get chunkDetectingSilence => 'Detecting silence gaps...';
+
+  @override
+  String get chunkFindingCutPoint => 'Finding optimal cut point...';
+
+  @override
+  String get chunkCuttingVideo => 'Splitting video...';
+
+  @override
+  String get chunkComplete => 'Chunking complete!';
+
+  @override
+  String chunkChunksCreated(Object count) {
+    return '$count chunks created';
+  }
+
+  @override
+  String get chunkClose => 'Close';
+
+  @override
+  String get chunkError => 'Chunking failed';
+
+  @override
+  String get chunkRestart => 'Restart';
 }

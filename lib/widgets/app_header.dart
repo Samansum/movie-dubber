@@ -9,6 +9,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String subtitle;
   final bool showBackButton;
   final VoidCallback? onBack;
+  final VoidCallback? onSettingsTap;
 
   const AppHeader({
     super.key,
@@ -16,6 +17,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.subtitle = 'Khmer Engine',
     this.showBackButton = false,
     this.onBack,
+    this.onSettingsTap,
   });
 
   @override
@@ -100,56 +102,21 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
 
-          // Right: Status & Avatar
-          // Row(
-          //   children: [
-          //     // Online Indicator with Creator Avatar
-          //     Stack(
-          //       clipBehavior: Clip.none,
-          //       children: [
-          //         Container(
-          //           width: 36,
-          //           height: 36,
-          //           decoration: BoxDecoration(
-          //             shape: BoxShape.circle,
-          //             border: Border.all(
-          //                 color: AppColors.primaryContainer, width: 1.5),
-          //             boxShadow: const [
-          //               BoxShadow(
-          //                 color: Color(0x667C3AED),
-          //                 blurRadius: 12,
-          //               ),
-          //             ],
-          //             image: const DecorationImage(
-          //               image: AssetImage('assets/images/logo.png'),
-          //               fit: BoxFit.cover,
-          //             ),
-          //           ),
-          //         ),
-          //         // Positioned(
-          //         //   bottom: -1,
-          //         //   right: -1,
-          //         //   child: Container(
-          //         //     width: 10,
-          //         //     height: 10,
-          //         //     decoration: BoxDecoration(
-          //         //       color: AppColors.tertiary,
-          //         //       shape: BoxShape.circle,
-          //         //       border: Border.all(color: AppColors.surface, width: 2),
-          //         //       boxShadow: const [
-          //         //         BoxShadow(
-          //         //           color: AppColors.tertiary,
-          //         //           blurRadius: 6,
-          //         //           spreadRadius: 1,
-          //         //         ),
-          //         //       ],
-          //         //     ),
-          //         //   ),
-          //         // ),
-          //       ],
-          //     ),
-          //   ],
-          // ),
+          // Right: Status & Avatar & Settings
+          Row(
+            children: [
+              if (onSettingsTap != null)
+                IconButton(
+                  icon: const Icon(Icons.settings_rounded,
+                      color: AppColors.onSurface, size: 24),
+                  onPressed: onSettingsTap,
+                  tooltip: 'Settings',
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
+                ),
+            ],
+          ),
         ],
       ),
     );
