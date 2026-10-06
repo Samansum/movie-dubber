@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -31,6 +32,7 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
   List<String>? _resultChunks;
   bool _isPlaying = false;
   Timer? _progressTimer;
+  bool _isPicking = false; // Loading indicator while video is being loaded
 
   // Per-chunk playback state
   Map<String, VideoPlayerController?> _chunkPlayers = {};
@@ -163,8 +165,14 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     _chunkPlayers.clear();
     _chunkListeners.clear();
     _playingChunks.clear();
+    // Also dispose main video controller & clear selected video
+    _videoController?.removeListener(_onCtrlUpdate);
+    _videoController?.dispose();
+    _videoController = null;
     setState(() {
       _resultChunks = null;
+      _videoAsset = null;
+      _isPlaying = false;
     });
   }
 
@@ -173,46 +181,113 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       final r = await FilePicker.platform
           .pickFiles(type: FileType.video, allowMultiple: false);
       if (r == null || r.files.isEmpty) return;
-      final p = r.files.first.path;
+      final pickedFile = r.files.first;
+      final p = pickedFile.path;
       if (p == null || p.isEmpty) {
         _err('Cannot read video');
         return;
       }
-      await _loadVideo(p);
+      // Show loading indicator immediately
+      setState(() => _isPicking = true);
+      await _loadVideo(p, pickedFile.size, pickedFile.name);
     } catch (e) {
       debugPrint('Error: $e');
       _err('Could not load video.');
+    } finally {
+      if (mounted) setState(() => _isPicking = false);
     }
   }
 
-  Future<void> _loadVideo(String path) async {
-    final prev = _videoController;
-    _videoController = null;
-    if (mounted) setState(() => _isPlaying = false);
+  /// Probe video metadata quickly using ffprobe, then initialize the player.
+  /// Returns a VideoAsset populated from probe results + file picker metadata.
+  Future<VideoAsset?> _probeAndLoad(String path, int pickerSize) async {
     VideoPlayerController? ctrl;
+    double duration = 0;
+    Size size = const Size(1920, 1080); // fallback resolution
+
+    // Quick ffprobe pass — get duration & resolution from streams
+    try {
+      final session = await FFprobeKit.getMediaInformation(path);
+      final mediaInfo = session.getMediaInformation();
+      if (mediaInfo != null) {
+        // Get duration from format-level info
+        final durStr = mediaInfo.getDuration();
+        if (durStr != null && durStr.isNotEmpty) {
+          duration = double.tryParse(durStr) ?? 0;
+        }
+        // Resolution is in video stream, not format level
+        final streams = mediaInfo.getStreams();
+        for (final s in streams) {
+          if (s.getType() == 'video') {
+            final w = s.getWidth();
+            final h = s.getHeight();
+            if (w != null && h != null) {
+              size = Size(w.toDouble(), h.toDouble());
+            }
+            break; // first video stream is enough
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('ffprobe metadata error (non-fatal): $e');
+    }
+
+    // Initialize the full player (needed for preview display)
     try {
       ctrl = VideoPlayerController.file(File(path));
       await ctrl.initialize();
       await ctrl.setLooping(false);
       await ctrl.seekTo(Duration.zero);
       final sz = ctrl.value.size;
-      _videoAsset = VideoAsset(
-        filePath: path,
-        fileName: _name(path),
-        duration: ctrl.value.duration,
-        width: sz.width.toInt(),
-        height: sz.height.toInt(),
-        sizeBytes: await File(path).length(),
-      );
+      size = sz;
+      final dur = ctrl.value.duration;
+      duration = dur.inSeconds.toDouble() + dur.inMicroseconds / Duration.microsecondsPerSecond;
+    } catch (e) {
+      debugPrint('Player init error: $e');
+      // Still return what we have from ffprobe
+    }
+
+    return VideoAsset(
+      filePath: path,
+      fileName: _name(path),
+      duration: Duration(seconds: duration.toInt()),
+      width: size.width.toInt(),
+      height: size.height.toInt(),
+      sizeBytes: pickerSize > 0 ? pickerSize : await File(path).length(),
+    );
+  }
+
+  Future<void> _loadVideo(String path, int pickerSize, String pickerName) async {
+    final prev = _videoController;
+    _videoController = null;
+    if (mounted) setState(() => _isPlaying = false);
+    try {
+      final asset = await _probeAndLoad(path, pickerSize);
+      if (asset == null) return;
+
+      // Use picker name/size if available, otherwise from ffprobe/file
+      if (mounted) {
+        setState(() {
+          _videoAsset = VideoAsset(
+            filePath: asset.filePath,
+            fileName: pickerName.isNotEmpty ? pickerName : asset.fileName,
+            duration: asset.duration,
+            width: asset.width,
+            height: asset.height,
+            sizeBytes: pickerSize > 0 ? pickerSize : asset.sizeBytes,
+          );
+        });
+      }
     } catch (e) {
       debugPrint('Load error: $e');
       _err('Could not load video.');
     }
+    // Dispose previous controller
     prev?.removeListener(_onCtrlUpdate);
     prev?.dispose();
-    if (mounted) {
+    // Attach listener to new controller
+    if (mounted && _videoController != null) {
       setState(() {
-        _videoController = ctrl;
         _videoController?.addListener(_onCtrlUpdate);
       });
     }
@@ -582,7 +657,7 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       SizedBox(
         width: double.infinity,
         child: OutlinedButton(
-          onPressed: () => setState(() => _resultChunks = null),
+          onPressed: () => _clearAllResults(),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
@@ -616,11 +691,40 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_resultChunks == null && !_isProcessing && !_hasVideo)
+        // Show loading indicator while video is being loaded
+        if (_isPicking) ...[
+          _buildLoadingIndicator(context),
+        ],
+        if (_resultChunks == null && !_isProcessing && !_hasVideo && !_isPicking)
           _buildEmpty(context),
         if (_hasVideo && _resultChunks == null) ...[_buildInfoCard(context)],
         if (_resultChunks != null) ...[_buildResults(context)],
       ]),
+    );
+  }
+
+  Widget _buildLoadingIndicator(BuildContext ctx) {
+    final l10n = AppLocalizations.of(ctx);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          const CircularProgressIndicator(strokeWidth: 3),
+          const SizedBox(height: 16),
+          Text(l10n.chunkLoadingVideo,
+              style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('Preparing video for chunking...',
+              style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
+        ],
+      ),
     );
   }
 }

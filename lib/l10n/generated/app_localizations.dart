@@ -1316,11 +1316,17 @@ abstract class AppLocalizations {
   /// **'Clear All'**
   String get chunkClearAll;
 
-  /// No description provided for @chunkSaveToGallery.
+  /// Save to Gallery
   ///
   /// In en, this message translates to:
   /// **'Save to Gallery'**
   String get chunkSaveToGallery;
+
+  /// Label shown while video is being loaded and initialized
+  ///
+  /// In en, this message translates to:
+  /// **'Loading video...'**
+  String get chunkLoadingVideo;
 
   /// No description provided for @playVideo.
   ///

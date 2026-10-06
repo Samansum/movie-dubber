@@ -693,5 +693,8 @@ class AppLocalizationsKm extends AppLocalizations {
   String get chunkSaveToGallery => 'រក្សាទុកទៅវិចិត្រសាល';
 
   @override
+  String get chunkLoadingVideo => 'កំពុងផ្ទុកវីដេអូ...';
+
+  @override
   String get playVideo => 'ចាក់វិដេអូ';
 }

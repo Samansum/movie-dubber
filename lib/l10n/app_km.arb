@@ -234,5 +234,6 @@
   "chunkRestart": "ចាប់ផ្តើមម្តងទៀត",
   "chunkClearAll": "សម្អាតទាំងអស់",
   "chunkSaveToGallery": "រក្សាទុកទៅវិចិត្រសាល",
+  "chunkLoadingVideo": "កំពុងផ្ទុកវីដេអូ...",
   "playVideo": "ចាក់វិដេអូ"
 }

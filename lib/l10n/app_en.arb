@@ -319,5 +319,12 @@
   "chunkRestart": "Restart",
   "chunkClearAll": "Clear All",
   "chunkSaveToGallery": "Save to Gallery",
+  "@chunkSaveToGallery": {
+    "description": "Save to Gallery"
+  },
+  "chunkLoadingVideo": "Loading video...",
+  "@chunkLoadingVideo": {
+    "description": "Label shown while video is being loaded and initialized"
+  },
   "playVideo": "Play"
 }
