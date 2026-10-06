@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -21,25 +22,28 @@ class MainNavigationScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
-        String screenTitle = 'CineDub AI';
-        String screenSubtitle = 'Khmer Engine';
+        // Read the catalog once per rebuild: switching App Language notifies
+        // AppState, which re-runs this builder against the new locale.
+        final l10n = AppLocalizations.of(context);
+        String screenTitle = l10n.screenHomeTitle;
+        String screenSubtitle = l10n.screenHomeSubtitle;
 
         switch (state.currentTabIndex) {
           case 0:
-            screenTitle = 'CineDub AI';
-            screenSubtitle = 'Khmer Engine';
+            screenTitle = l10n.screenHomeTitle;
+            screenSubtitle = l10n.screenHomeSubtitle;
             break;
           case 1:
-            screenTitle = 'Dubbing Queue';
-            screenSubtitle = 'Pipeline Monitor';
+            screenTitle = l10n.screenQueueTitle;
+            screenSubtitle = l10n.screenQueueSubtitle;
             break;
           case 2:
-            screenTitle = 'Completed Dub';
-            screenSubtitle = 'Studio Player';
+            screenTitle = l10n.screenPlayerTitle;
+            screenSubtitle = l10n.screenPlayerSubtitle;
             break;
           case 3:
-            screenTitle = 'Dubbing Settings';
-            screenSubtitle = 'Gemini & TTS Config';
+            screenTitle = l10n.screenSettingsTitle;
+            screenSubtitle = l10n.screenSettingsSubtitle;
             break;
         }
 
@@ -101,14 +105,14 @@ class MainNavigationScreen extends StatelessWidget {
                       _buildNavItem(
                         index: 0,
                         icon: Icons.videocam_rounded,
-                        label: 'Dub',
+                        label: l10n.tabDub,
                         isSelected: state.currentTabIndex == 0,
                         onTap: () => state.setTabIndex(0),
                       ),
                       _buildNavItem(
                         index: 1,
                         icon: Icons.graphic_eq_rounded,
-                        label: 'Queue',
+                        label: l10n.tabQueue,
                         isSelected: state.currentTabIndex == 1,
                         hasBadge: state.isPipelineBusy,
                         onTap: () => state.setTabIndex(1),
@@ -116,14 +120,14 @@ class MainNavigationScreen extends StatelessWidget {
                       _buildNavItem(
                         index: 2,
                         icon: Icons.play_circle_fill_rounded,
-                        label: 'Player',
+                        label: l10n.tabPlayer,
                         isSelected: state.currentTabIndex == 2,
                         onTap: () => state.setTabIndex(2),
                       ),
                       _buildNavItem(
                         index: 3,
                         icon: Icons.tune_rounded,
-                        label: 'Settings',
+                        label: l10n.tabSettings,
                         isSelected: state.currentTabIndex == 3,
                         onTap: () => state.setTabIndex(3),
                       ),

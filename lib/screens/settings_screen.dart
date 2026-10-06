@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
@@ -50,10 +51,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _addApiKey() {
+    final l10n = AppLocalizations.of(context);
     final token = _tokenController.text.trim();
     if (token.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid Gemini API token.')),
+        SnackBar(content: Text(l10n.invalidTokenMessage)),
       );
       return;
     }
@@ -65,11 +67,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.primaryContainer,
-        content: const Row(
+        content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('Gemini API key saved!'),
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.apiKeySavedMessage),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -82,12 +84,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final keys = state.apiKeys;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // App Language / ភាសា — first so the language switch is easy to find.
+          // Switching locale rebuilds MaterialApp, which re-inflates this tree
+          // with the other catalog's strings on the next frame.
+          Text(
+            l10n.languageSectionTitle,
+            style: AppTypography.labelSm.copyWith(
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      margin: const EdgeInsets.only(right: 12, top: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.translate_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.languageSectionTitle,
+                            style: AppTypography.headlineSm.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.languageSectionSubtitle,
+                            style: AppTypography.bodySm
+                                .copyWith(color: AppColors.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildLanguageChip(
+                      state: state,
+                      l10n: l10n,
+                      code: 'en',
+                      label: l10n.languageEnglish,
+                      isSelected: !state.isKhmer,
+                    ),
+                    _buildLanguageChip(
+                      state: state,
+                      l10n: l10n,
+                      code: 'km',
+                      label: l10n.languageKhmer,
+                      isSelected: state.isKhmer,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // Informational Banner: Gemini API Keys Pool
           Container(
             padding: const EdgeInsets.all(16),
@@ -133,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           Text(
-                            'Gemini API Keys Pool',
+                            l10n.keysPoolTitle,
                             style: AppTypography.headlineSm.copyWith(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -143,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Add multiple keys to bypass RPM/TPM restrictions. CineDub AI auto-rotates active tokens during full-length Khmer cinematic dubbing pipelines.',
+                        l10n.keysPoolSubtitle,
                         style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
                       ),
                     ],
@@ -160,7 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Registered Keys',
+                l10n.registeredKeys,
                 style: AppTypography.headlineSm.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.onSurface,
@@ -174,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   border: Border.all(color: AppColors.borderSubtle, width: 0.5),
                 ),
                 child: Text(
-                  '${keys.length} Configured',
+                  l10n.configuredCount(keys.length),
                   style: AppTypography.labelSm.copyWith(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -203,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const Icon(Icons.add_circle_rounded, color: AppColors.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Add Gemini API Key',
+                      l10n.addGeminiApiKey,
                       style: AppTypography.headlineSm.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -214,13 +302,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 14),
 
                 // Key Alias Field
-                const Text('Key Alias / Description', style: AppTypography.labelSm),
+                Text(l10n.keyAliasLabel, style: AppTypography.labelSm),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _aliasController,
                   style: AppTypography.bodyMd,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Project Cinema Beta',
+                  decoration: InputDecoration(
+                    hintText: l10n.keyAliasHint,
                     isDense: true,
                   ),
                 ),
@@ -228,14 +316,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
 
                 // Secret Token Field
-                const Text('Gemini API Secret Token', style: AppTypography.labelSm),
+                Text(l10n.geminiSecretTokenLabel, style: AppTypography.labelSm),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _tokenController,
                   obscureText: _obscureToken,
                   style: AppTypography.codeMono.copyWith(color: AppColors.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'AIzaSy...',
+                    hintText: l10n.tokenHint,
                     isDense: true,
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -267,7 +355,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: _addApiKey,
                     icon: const Icon(Icons.key_rounded, size: 18),
                     label: Text(
-                      'Add API Key',
+                      l10n.addApiKeyButton,
                       style: AppTypography.labelMd.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -283,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // AI Model & Translation Settings Section
           Text(
-            'TRANSLATION ENGINE & MODEL',
+            l10n.translationSectionTitle,
             style: AppTypography.labelSm.copyWith(
               letterSpacing: 0.8,
               fontWeight: FontWeight.w700,
@@ -298,7 +386,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Default Gemini Model',
+                  l10n.defaultGeminiModel,
                   style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
@@ -328,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                  'Khmer Dubbing Tone & Style',
+                  l10n.khmerToneStyle,
                   style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
@@ -358,7 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                  'Key Rotation Strategy',
+                  l10n.keyRotationStrategy,
                   style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
@@ -390,8 +478,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// One of the two App Language options (English / ខ្មែរ).
+  ///
+  /// The chip shows the language in its own script in both locales — that is
+  /// the convention for language pickers, so the option stays recognisable no
+  /// matter which language the UI is currently in.
+  Widget _buildLanguageChip({
+    required AppState state,
+    required AppLocalizations l10n,
+    required String code,
+    required String label,
+    required bool isSelected,
+  }) {
+    return ChoiceChip(
+      avatar: isSelected
+          ? const Icon(Icons.check_circle_rounded,
+              size: 16, color: Colors.white)
+          : null,
+      label: Text(
+        label,
+        style: AppTypography.labelSm.copyWith(
+          color: isSelected ? Colors.white : AppColors.onSurface,
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: AppColors.primaryContainer,
+      backgroundColor: AppColors.surfaceContainerHigh,
+      onSelected: (_) {
+        state.setAppLanguage(code);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primaryContainer,
+            content: Text(
+              code == 'km'
+                  ? l10n.languageSwitchedToKhmer
+                  : l10n.languageSwitchedToEnglish,
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildKeyCard(ApiKeyItem key, AppState state) {
+    final l10n = AppLocalizations.of(context);
     Color statusColor;
+    // The stored status is an invariant code ('Active'/'Standby'/'Cooldown'),
+    // so switch on the raw value and translate only what gets rendered.
     switch (key.status) {
       case 'Active':
         statusColor = AppColors.tertiary;
@@ -402,6 +539,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'Cooldown':
       default:
         statusColor = AppColors.warning;
+        break;
+    }
+
+    final String statusLabel;
+    switch (key.status) {
+      case 'Active':
+        statusLabel = l10n.statusActive;
+        break;
+      case 'Standby':
+        statusLabel = l10n.statusStandby;
+        break;
+      default:
+        statusLabel = l10n.statusCooldown;
         break;
     }
 
@@ -453,7 +603,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        key.status,
+                        statusLabel,
                         style: AppTypography.labelSm.copyWith(
                           color: statusColor,
                           fontSize: 9,
@@ -476,12 +626,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: AppColors.surfaceContainerHighest,
-                          content: Text('Copied ${key.maskedToken} to clipboard!'),
+                          content: Text(
+                            l10n.copiedTokenMessage(key.maskedToken),
+                          ),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
                     },
-                    tooltip: 'Copy Masked Token',
+                    tooltip: l10n.copyMaskedTokenTooltip,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
                   ),
@@ -489,7 +641,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.delete_outline_rounded, size: 16),
                     color: AppColors.error,
                     onPressed: () => state.removeApiKey(key.id),
-                    tooltip: 'Delete Key',
+                    tooltip: l10n.deleteKeyTooltip,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
                   ),
@@ -511,7 +663,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'RPM: ${key.rpmUsage}/${key.rpmMax} (${((key.rpmUsage / key.rpmMax) * 100).toInt()}%)',
+                l10n.rpmUsageLabel(
+                  key.rpmUsage,
+                  key.rpmMax,
+                  ((key.rpmUsage / key.rpmMax) * 100).toInt(),
+                ),
                 style: AppTypography.bodySm.copyWith(fontSize: 11),
               ),
               Container(
@@ -521,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  '${key.latencyMs}ms',
+                  l10n.latencyMsLabel(key.latencyMs),
                   style: AppTypography.codeMono.copyWith(
                     fontSize: 10,
                     color: AppColors.tertiary,

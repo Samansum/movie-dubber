@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_l10n.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
@@ -25,7 +26,7 @@ class QueueScreen extends StatelessWidget {
             const Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 24),
             const SizedBox(width: 8),
-            Text('Terminate Process?', style: AppTypography.headlineSm),
+            Text(AppLocalizations.of(context).terminateProcessTitle, style: AppTypography.headlineSm),
           ],
         ),
         content: Text(
@@ -55,14 +56,14 @@ class QueueScreen extends StatelessWidget {
                 SnackBar(
                   backgroundColor: AppColors.surfaceContainerHighest,
                   content: Text(
-                    'Dubbing process terminated.',
+                    AppLocalizations.of(context).processTerminated,
                     style:
                         AppTypography.bodyMd.copyWith(color: AppColors.error),
                   ),
                 ),
               );
             },
-            child: const Text('Terminate'),
+            child: Text(AppLocalizations.of(context).terminateConfirm, style: AppTypography.labelMd.copyWith(color: AppColors.error)),
           ),
         ],
       ),
@@ -81,12 +82,11 @@ class QueueScreen extends StatelessWidget {
             const Icon(Icons.playlist_remove_rounded,
                 color: AppColors.warning, size: 24),
             const SizedBox(width: 8),
-            Text('Remove from queue?', style: AppTypography.headlineSm),
+            Text(AppLocalizations.of(context).removeFromQueueTitle, style: AppTypography.headlineSm),
           ],
         ),
         content: Text(
-          'Remove "${task.videoTitle}" from the queue? This video has not started '
-          'processing yet, so nothing will be rendered for it.',
+          AppLocalizations.of(context).removeFromQueueBody(task.videoTitle),
           style: AppTypography.bodyMd,
         ),
         actions: [
@@ -113,8 +113,8 @@ class QueueScreen extends StatelessWidget {
                   backgroundColor: AppColors.surfaceContainerHighest,
                   content: Text(
                     removed
-                        ? '"${task.videoTitle}" removed from queue.'
-                        : 'This job is no longer in the queue.',
+                        ? AppLocalizations.of(context).removedFromQueue(task.videoTitle)
+                        : AppLocalizations.of(context).jobNoLongerInQueue,
                     style: AppTypography.bodyMd.copyWith(
                       color: removed
                           ? AppColors.warning
@@ -124,7 +124,7 @@ class QueueScreen extends StatelessWidget {
                 ),
               );
             },
-            child: const Text('Remove'),
+            child: Text(AppLocalizations.of(context).removeConfirm),
           ),
         ],
       ),
@@ -132,7 +132,7 @@ class QueueScreen extends StatelessWidget {
   }
 
   /// Shown when the pipeline has no active, queued or completed jobs.
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
@@ -160,15 +160,14 @@ class QueueScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'No dubbing jobs yet',
+            AppLocalizations.of(context).emptyStateEmptyQueue,
             style: AppTypography.headlineSm.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Pick a video and a voice on the Dub screen, then tap '
-            '"Start AI Khmer Dubbing" to begin processing.',
+            AppLocalizations.of(context).emptyStateEmptyQueueBody,
             textAlign: TextAlign.center,
             style: AppTypography.bodySm.copyWith(
               color: AppColors.onSurfaceVariant,
@@ -206,7 +205,7 @@ class QueueScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Dubbing Queue',
+                    AppLocalizations.of(context).screenQueueTitle,
                     style: AppTypography.headlineLg.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppColors.onSurface,
@@ -214,7 +213,7 @@ class QueueScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Automated Khmer video pipeline monitor',
+                    AppLocalizations.of(context).screenQueueSubtitle,
                     style: AppTypography.bodySm
                         .copyWith(color: AppColors.onSurfaceVariant),
                   ),
@@ -245,6 +244,12 @@ class QueueScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      AppLocalizations.of(context).syncLive,
+                      style: AppTypography.codeMono
+                          .copyWith(fontSize: 10, letterSpacing: 0.8),
                     ),
                   ],
                 ),
@@ -385,7 +390,7 @@ class QueueScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // EMPTY STATE: shown only when the pipeline has no jobs at all
-          if (!hasAnything) _buildEmptyState(),
+          if (!hasAnything) _buildEmptyState(context),
 
           // CARD 1: CURRENTLY PROCESSING VIDEO (only while a job is running)
           if (active != null)
@@ -599,7 +604,7 @@ class QueueScreen extends StatelessWidget {
                           icon:
                               const Icon(Icons.stop_circle_outlined, size: 18),
                           label: Text(
-                            'Terminate Process',
+                             AppLocalizations.of(context).terminateProcessTitle,
                             style: AppTypography.labelMd.copyWith(
                               color: const Color(0xFFF87171),
                               fontWeight: FontWeight.w600,
@@ -618,7 +623,7 @@ class QueueScreen extends StatelessWidget {
           if (failed.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
-              'FAILED JOBS',
+              AppLocalizations.of(context).failedJobs,
               style: AppTypography.labelSm.copyWith(
                 letterSpacing: 0.8,
                 fontWeight: FontWeight.w700,
@@ -720,8 +725,8 @@ class QueueScreen extends StatelessWidget {
                             ),
                             content: Text(
                               removed
-                                  ? 'Removed "${item.videoTitle}" from the queue.'
-                                  : 'This job is no longer listed.',
+                                  ? AppLocalizations.of(context).removedFromQueue(item.videoTitle)
+                                  : AppLocalizations.of(context).jobNoLongerInQueue,
                               style: AppTypography.bodyMd.copyWith(
                                 color: removed
                                     ? AppColors.onSurface
@@ -733,7 +738,7 @@ class QueueScreen extends StatelessWidget {
                       },
                       icon: const Icon(Icons.close_rounded, size: 16),
                       label: Text(
-                        'Remove',
+                        AppLocalizations.of(context).removeConfirm,
                         style: AppTypography.labelMd.copyWith(
                           color: AppColors.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
@@ -887,7 +892,7 @@ class QueueScreen extends StatelessWidget {
                           icon: const Icon(Icons.playlist_remove_rounded,
                               size: 18),
                           label: Text(
-                            'Remove from queue',
+                            AppLocalizations.of(context).removeFromQueueTooltip,
                             style: AppTypography.labelMd.copyWith(
                               color: AppColors.warning,
                               fontWeight: FontWeight.w600,
@@ -906,7 +911,7 @@ class QueueScreen extends StatelessWidget {
           if (completed.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
-              'RECENTLY COMPLETED',
+              AppLocalizations.of(context).completedRecentJobs,
               style: AppTypography.labelSm.copyWith(
                 letterSpacing: 0.8,
                 fontWeight: FontWeight.w700,

@@ -7,6 +7,7 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_l10n.dart';
 import '../models/dub_models.dart';
 import 'dubbing/dubbing_pipeline.dart';
 import 'dubbing/ffmpeg_dubbing_service.dart';
@@ -132,7 +133,9 @@ class AppState extends ChangeNotifier {
   // work (FFmpeg / Gemini / Edge TTS) rather than a fixed dummy clock.
   static const int _pipelineStageCount = DubbingStageCatalog.stageCount;
 
-  static const List<String> _stageTitles = DubbingStageCatalog.titles;
+  /// Titles resolved for the current App Language. Re-read on every build
+  /// rather than cached in a const, so switching language re-renders them.
+  List<String> get _stageTitles => DubbingStageCatalog.titlesFor(_appLocale);
 
   static const List<IconData> _stageIcons = [
     Icons.audiotrack_rounded,
@@ -215,6 +218,80 @@ class AppState extends ChangeNotifier {
   String _keyRotationStrategy = 'Rate-Limit Balanced';
   String get keyRotationStrategy => _keyRotationStrategy;
 
+  // App display language (Settings → App Language / ភាសា).
+  //
+  // Only English and Khmer are offered. The choice is persisted so it survives
+  // a restart, and [_appLocale] is what MaterialApp is given as its `locale`
+  // plus what [stringsFor] uses for text produced outside the widget tree.
+  Locale _appLocale = const Locale('km');
+  Locale get appLocale => _appLocale;
+
+  /// Whether the app is currently displaying Khmer.
+  bool get isKhmer => _appLocale.languageCode == 'km';
+
+  /// Switches the whole UI to [languageCode] (`'en'` or `'km'`).
+  ///
+  /// Unknown codes fall back to English rather than throwing, so a stale or
+  /// corrupt stored value can never blank the UI.
+  void setAppLanguage(String languageCode) {
+    final normalized = languageCode == 'km' ? 'km' : 'en';
+    final next = Locale(normalized);
+    if (_appLocale == next) return;
+    _appLocale = next;
+    _prefs?.setString('app_language', normalized);
+    // Stage titles/badges/descriptions were rendered into the task models when
+    // they were created, so rebuild them in the new language — otherwise jobs
+    // already on screen would keep the previous language's text.
+    _relocalizeTasks();
+    notifyListeners();
+  }
+
+  /// Re-renders every stored task's stage text in the current App Language.
+  ///
+  /// Only the display strings change; status, progress, errors and ordering
+  /// are copied across untouched.
+  void _relocalizeTasks() {
+    DubbingTask relocalize(DubbingTask task) => task.copyWith(
+          stages: task.stages
+              .map(
+                (stage) => PipelineStage(
+                  stageNumber: stage.stageNumber,
+                  title: _stageTitles[stage.stageNumber - 1],
+                  description: stage.status == StageStatus.failed
+                      ? _failedStageDescription(stage.stageNumber - 1)
+                      : _stageDescription(
+                          stage.stageNumber - 1,
+                          stage.status,
+                          task.voiceProfile,
+                        ),
+                  status: stage.status,
+                  badgeText: switch (stage.status) {
+                    StageStatus.failed => stringsFor(_appLocale).badgeFailed,
+                    StageStatus.completed =>
+                      stringsFor(_appLocale).badgeCompleted,
+                    StageStatus.inProgress =>
+                      stringsFor(_appLocale).badgeInProgress,
+                    StageStatus.nextUp => stringsFor(_appLocale).badgeNextUp,
+                    StageStatus.pending => stringsFor(_appLocale).badgePending,
+                  },
+                  icon: stage.icon,
+                ),
+              )
+              .toList(growable: false),
+        );
+
+    if (_activeTask != null) _activeTask = relocalize(_activeTask!);
+    for (var i = 0; i < _queuedTasks.length; i++) {
+      _queuedTasks[i] = relocalize(_queuedTasks[i]);
+    }
+    for (var i = 0; i < _completedTasks.length; i++) {
+      _completedTasks[i] = relocalize(_completedTasks[i]);
+    }
+    for (var i = 0; i < _failedTasks.length; i++) {
+      _failedTasks[i] = relocalize(_failedTasks[i]);
+    }
+  }
+
   AppState() {
     loadSettingsFromStorage();
   }
@@ -279,6 +356,11 @@ class AppState extends ChangeNotifier {
       if (savedStrategy != null && savedStrategy.isNotEmpty) {
         _keyRotationStrategy = savedStrategy;
       }
+
+      // Restore the App Language chosen in Settings. Anything other than
+      // 'km' resolves to English, matching setAppLanguage's fallback.
+      final savedLanguage = _prefs?.getString('app_language');
+      _appLocale = Locale(savedLanguage == 'km' ? 'km' : 'en');
 
       // Restore stored API keys pool
       final keysListJson = _prefs?.getStringList('stored_api_keys');
@@ -354,17 +436,18 @@ class AppState extends ChangeNotifier {
       final bool isDone = status == StageStatus.completed;
       final bool isRunning = status == StageStatus.inProgress;
       final bool isFailed = status == StageStatus.failed;
+      final l10n = stringsFor(_appLocale);
       final String badgeText;
       if (isFailed) {
-        badgeText = 'Failed';
+        badgeText = l10n.badgeFailed;
       } else if (isDone) {
-        badgeText = 'Completed';
+        badgeText = l10n.badgeCompleted;
       } else if (isRunning) {
-        badgeText = 'In Progress';
+        badgeText = l10n.badgeInProgress;
       } else if (status == StageStatus.nextUp) {
-        badgeText = 'Next Up';
+        badgeText = l10n.badgeNextUp;
       } else {
-        badgeText = 'Pending';
+        badgeText = l10n.badgePending;
       }
 
       return PipelineStage(
@@ -385,15 +468,16 @@ class AppState extends ChangeNotifier {
 
   /// Description shown on the stage that stopped the pipeline.
   String _failedStageDescription(int index) {
+    final l10n = stringsFor(_appLocale);
     switch (index) {
       case 0:
-        return 'Audio extraction failed';
+        return l10n.failedDesc0;
       case 1:
-        return 'Transcription / translation failed';
+        return l10n.failedDesc1;
       case 2:
-        return 'Speech synthesis failed';
+        return l10n.failedDesc2;
       default:
-        return 'Video render failed';
+        return l10n.failedDesc3;
     }
   }
 
@@ -401,23 +485,24 @@ class AppState extends ChangeNotifier {
   String _stageDescription(int index, StageStatus status, VoiceProfile voice) {
     final bool done = status == StageStatus.completed;
     final bool running = status == StageStatus.inProgress;
+    final l10n = stringsFor(_appLocale);
     switch (index) {
       case 0:
-        if (done) return 'Demuxed 48kHz WAV audio stream';
-        if (running) return 'Demuxing audio track to 48kHz WAV';
-        return 'Awaiting audio extraction';
+        if (done) return l10n.stage0Done;
+        if (running) return l10n.stage0Running;
+        return l10n.stage0Pending;
       case 1:
-        if (done) return 'Khmer translation completed';
-        if (running) return 'Translating dialogue to Khmer';
-        return 'Khmer translation queued';
+        if (done) return l10n.stage1Done;
+        if (running) return l10n.stage1Running;
+        return l10n.stage1Pending;
       case 2:
-        if (done) return 'Edge-TTS Khmer audio rendered';
-        if (running) return 'Synthesizing...';
-        return 'Synthesis queued';
+        if (done) return l10n.stage2Done;
+        if (running) return l10n.stage2Running;
+        return l10n.stage2Pending;
       default:
-        if (done) return 'Final dubbed MP4 rendered';
-        if (running) return 'Remuxing video & muxing Khmer audio';
-        return 'Video remux & lip-sync pending';
+        if (done) return l10n.stage3Done;
+        if (running) return l10n.stage3Running;
+        return l10n.stage3Pending;
     }
   }
 
@@ -447,7 +532,7 @@ class AppState extends ChangeNotifier {
       isQueued: false,
       isCompleted: false,
       stages: _buildStages(voice: voice, activeStageIndex: 0),
-      liveStatusLog: 'Preparing pipeline for $videoTitle',
+      liveStatusLog: stringsFor(_appLocale).preparingPipeline(videoTitle),
     );
   }
 
@@ -492,7 +577,7 @@ class AppState extends ChangeNotifier {
           isQueued: true,
           stages: _buildStages(voice: task.voiceProfile, activeStageIndex: -1),
           liveStatusLog:
-              'Waiting in queue position #${_queuedTasks.length + 1}',
+              stringsFor(_appLocale).waitingInQueue(_queuedTasks.length + 1),
         ),
       );
     }
@@ -680,7 +765,7 @@ class AppState extends ChangeNotifier {
             voice: voice,
             activeStageIndex: _pipelineStageCount,
           ),
-          liveStatusLog: 'All 4 stages completed • Output ready',
+          liveStatusLog: stringsFor(_appLocale).allStagesCompleted,
         ),
       );
 
@@ -727,7 +812,7 @@ class AppState extends ChangeNotifier {
         activeStageIndex: -1,
       ),
       liveStatusLog:
-          'Queued to retry from ${DubbingStageCatalog.titleFor(resumeFrom)}',
+          stringsFor(_appLocale).queuedToRetry(DubbingStageCatalog.titleFor(resumeFrom)),
     );
 
     if (_activeTask == null || !_activeTask!.isProcessing) {
@@ -805,7 +890,7 @@ class AppState extends ChangeNotifier {
         activeStageIndex: -1,
         failedStageIndex: error.stageIndex,
       ),
-      liveStatusLog: 'Stopped at ${error.stageTitle} • ${error.message}',
+      liveStatusLog: stringsFor(_appLocale).stoppedAtStage(error.stageTitle, error.message),
       error: error,
     );
 
@@ -889,7 +974,7 @@ class AppState extends ChangeNotifier {
       isProcessing: true,
       isQueued: false,
       progress: 0.0,
-      liveStatusLog: 'Starting pipeline for ${next.videoTitle}',
+      liveStatusLog: stringsFor(_appLocale).startingPipeline(next.videoTitle),
     );
     _runActiveTask(next);
   }
@@ -898,7 +983,7 @@ class AppState extends ChangeNotifier {
   void _renumberQueue() {
     for (var i = 0; i < _queuedTasks.length; i++) {
       _queuedTasks[i] = _queuedTasks[i].copyWith(
-        liveStatusLog: 'Waiting in queue position #${i + 1}',
+        liveStatusLog: stringsFor(_appLocale).waitingInQueue(i + 1),
       );
     }
   }

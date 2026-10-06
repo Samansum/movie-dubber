@@ -11,6 +11,8 @@ dependencies:
   file_picker: ^8.1.7
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   gal: ^2.3.3
   http: ^1.6.0
   path_provider: ^2.1.6
@@ -46,5 +48,8 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  # Enables `flutter gen-l10n` so AppLocalizations is generated from the ARB
+  # files in lib/l10n/ during `flutter run` / `flutter test`.
+  generate: true
   assets:
     - assets/images/

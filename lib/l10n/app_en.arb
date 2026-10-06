@@ -1,0 +1,303 @@
+{
+  "@@locale": "en",
+  "appName": "CineDub AI",
+  "appTagline": "Khmer Engine",
+  "tabDub": "Dub",
+  "tabQueue": "Queue",
+  "tabPlayer": "Player",
+  "tabSettings": "Settings",
+
+  "screenHomeTitle": "CineDub AI",
+  "screenHomeSubtitle": "Khmer Engine",
+  "screenQueueTitle": "Dubbing Queue",
+  "screenQueueSubtitle": "Pipeline Monitor",
+  "screenPlayerTitle": "Completed Dub",
+  "screenPlayerSubtitle": "Studio Player",
+  "screenSettingsTitle": "Dubbing Settings",
+  "screenSettingsSubtitle": "Gemini & TTS Config",
+
+  "back": "Back",
+  "languageSectionTitle": "App Language / ភាសា",
+  "languageSectionSubtitle": "Choose the language used across the whole app. The change applies immediately.",
+  "languageEnglish": "English",
+  "languageKhmer": "ខ្មែរ",
+  "languageSwitchedToEnglish": "App language set to English.",
+  "languageSwitchedToKhmer": "App language set to Khmer.",
+  "keysPoolTitle": "Gemini API Keys Pool",
+  "keysPoolSubtitle": "Add multiple keys to bypass RPM/TPM restrictions. CineDub AI auto-rotates active tokens during full-length Khmer cinematic dubbing pipelines.",
+  "registeredKeys": "Registered Keys",
+
+  "configuredCount": "{count} Configured",
+  "@configuredCount": {
+    "description": "Number of Gemini API keys currently stored.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "addGeminiApiKey": "Add Gemini API Key",
+  "keyAliasLabel": "Key Alias / Description",
+  "keyAliasHint": "e.g. Project Cinema Beta",
+  "geminiSecretTokenLabel": "Gemini API Secret Token",
+  "tokenHint": "AIzaSy...",
+  "addApiKeyButton": "Add API Key",
+  "invalidTokenMessage": "Please enter a valid Gemini API token.",
+  "apiKeySavedMessage": "Gemini API key saved!",
+  "copyMaskedTokenTooltip": "Copy Masked Token",
+  "deleteKeyTooltip": "Delete Key",
+  "copiedTokenMessage": "Copied {token} to clipboard!",
+  "@copiedTokenMessage": {
+    "description": "Snackbar shown after copying a masked API token.",
+    "placeholders": { "token": { "type": "String" } }
+  },
+  "rpmUsageLabel": "RPM: {used}/{max} ({percent}%)",
+  "@rpmUsageLabel": {
+    "description": "Requests-per-minute usage for one API key.",
+    "placeholders": {
+      "used": { "type": "int" },
+      "max": { "type": "int" },
+      "percent": { "type": "int" }
+    }
+  },
+  "latencyMsLabel": "{ms}ms",
+  "@latencyMsLabel": {
+    "description": "Measured API latency in milliseconds.",
+    "placeholders": { "ms": { "type": "int" } }
+  },
+  "statusActive": "Active",
+  "statusStandby": "Standby",
+  "statusCooldown": "Cooldown",
+  "translationSectionTitle": "TRANSLATION ENGINE & MODEL",
+  "defaultGeminiModel": "Default Gemini Model",
+  "khmerToneStyle": "Khmer Dubbing Tone & Style",
+  "keyRotationStrategy": "Key Rotation Strategy",
+
+  "selectSourceVideo": "Select Source Video",
+  "chooseFromGalleryOrFile": "Choose from Gallery or File",
+  "selectVideoHint": "Select MP4, MOV, or MKV video file from your device",
+  "selectVoiceMode": "Select Voice Mode",
+  "voiceModeHint": "Single Choice • Multi-Speaker Cast or Solo Voice",
+  "audioTuningSection": "Audio Tuning & Lip-Sync Controls",
+  "voicePitchOffset": "Voice Pitch Offset",
+  "speechSpeed": "Speech Speed & Cadence",
+  "backgroundDucking": "Background Audio Ducking",
+  "resetDefaults": "Reset Defaults",
+  "startDubbingButton": "Start AI Khmer Dubbing",
+  "pipelineEstimate": "4-Stage Compute • Est. time: ~1m 20s",
+  "clickToSelectSource": "Click to select source video first",
+  "preparingPreview": "Preparing video preview…",
+  "clickToSelectVideo": "Click to select video from gallery or file",
+  "tapToPickVideo": "Tap to pick a video file from your device storage",
+  "replaceButton": "Replace",
+  "unableToReadVideo": "Unable to read the selected video file.",
+  "errorPickingFile": "Error picking file: {error}",
+  "@errorPickingFile": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "couldNotLoadVideo": "Could not load the selected video file.",
+  "errorLoadingVideo": "Error loading video: {error}",
+  "@errorLoadingVideo": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "videoPreviewFailed": "This video could not be loaded for preview.",
+  "errorReleasingPreview": "Error releasing video preview: {error}",
+  "@errorReleasingPreview": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "pipelineStartedFor": "Dubbing pipeline started for {video}!",
+  "@pipelineStartedFor": {
+    "placeholders": { "video": { "type": "String" } }
+  },
+
+  "terminateDialogTitle": "Terminate Process?",
+  "terminateDialogBody": "Are you sure you want to stop the ongoing translation and TTS synthesis? This will abort the current video render.",
+  "terminateConfirm": "Terminate",
+  "terminateTooltip": "Terminate Process",
+  "terminateFailedMessage": "Dubbing process terminated.",
+  "removeDialogTitle": "Remove from queue?",
+  "removeDialogBody": "Remove \"{title}\" from the queue? This video has not started processing yet, so nothing will be rendered for it.",
+  "@removeDialogBody": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "removeConfirm": "Remove",
+  "removedFromQueueMessage": "\"{title}\" removed from queue. This job is no longer in the queue.",
+  "@removedFromQueueMessage": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "removedListedMessage": "\"{title}\" removed from the queue. This job is no longer listed.",
+  "@removedListedMessage": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "cancelButton": "Cancel",
+  "emptyQueueTitle": "No dubbing jobs yet",
+  "emptyQueueBodyLead": "Pick a video and a voice on the Dub screen, then tap ",
+  "emptyQueueBodyTail": "\"Start AI Khmer Dubbing\" to begin processing.",
+  "queueTitle": "Dubbing Queue",
+  "queueSubtitle": "Automated Khmer video pipeline monitor",
+  "syncLive": "SYNC LIVE",
+  "stageProgression": "PIPELINE STAGE PROGRESSION",
+  "failedJobsSection": "FAILED JOBS",
+  "failedJobsBodyLead": "These renders stopped on an error. Stages before the failure are ",
+  "failedJobsBodyTail": "marked completed; everything after it did not run.",
+  "failedStageBadge": "FAILED • STAGE {stage}",
+  "@failedStageBadge": {
+    "placeholders": { "stage": { "type": "int" } }
+  },
+  "queuedVideosSection": "QUEUED VIDEOS",
+  "queuedBadge": "QUEUED #{position}",
+  "@queuedBadge": {
+    "placeholders": { "position": { "type": "int" } }
+  },
+  "awaitingSlot": "Awaiting worker slot • Will execute after active render",
+  "removeFromQueueTooltip": "Remove from queue",
+  "recentlyCompletedSection": "RECENTLY COMPLETED",
+  "playButton": "Play",
+
+  "emptyPlayerTitle": "No dubbed video yet",
+  "emptyPlayerBodyLead": "Finish a job in the Queue, then tap \"Play\" on it to watch the ",
+  "emptyPlayerBodyTail": "rendered Khmer dub here.",
+  "voiceLabel": "Voice: {name}",
+  "@voiceLabel": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "playbackLabel": "Playback {current} / {total}",
+  "@playbackLabel": {
+    "placeholders": {
+      "current": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "saveToGalleryButton": "Save to Gallery",
+  "savingToGallery": "Saving…",
+  "savedToGallery": "Saved to Gallery",
+  "retrySaveToGallery": "Retry Save to Gallery",
+  "noRenderedVideoYet": "This job has no rendered video file yet.",
+  "renderedVideoMissing": "The rendered video no longer exists on disk:\n{path}",
+  "@renderedVideoMissing": {
+    "placeholders": { "path": { "type": "String" } }
+  },
+  "couldNotOpenVideo": "Could not open this video:\n{error}",
+  "@couldNotOpenVideo": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+
+  "retryThisStage": "Retry this stage",
+  "pipelineErrorIn": "Pipeline error in {stage}",
+  "@pipelineErrorIn": {
+    "placeholders": { "stage": { "type": "String" } }
+  },
+  "rawErrorMessage": "Raw error message",
+  "noDetailsCaptured": "(no details captured)",
+  "copyErrorReport": "Copy error report",
+  "errorReportCopied": "Error report copied to clipboard",
+  "couldNotCopyError": "Could not copy to clipboard: {error}",
+  "@couldNotCopyError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+
+  "licensePrompt": "Enter your license key to continue.",
+  "activateTitle": "Activate CineDub AI",
+  "activateBody": "Enter the license key you received to activate this device.",
+  "licenseKeyLabel": "License key",
+  "licenseKeyHint": "KD-XXXX-XXXX-XXXX",
+  "activateButton": "Activate",
+
+  "stageTitle1": "1. Extract audio",
+  "stageTitle2": "2. Transcribe and translate",
+  "stageTitle3": "3. Generate voice",
+  "stageTitle4": "4. Build video",
+  "stageFallback": "Stage {index}",
+  "@stageFallback": {
+    "placeholders": { "index": { "type": "int" } }
+  },
+  "badgeFailed": "Failed",
+  "badgeCompleted": "Completed",
+  "badgeInProgress": "In Progress",
+  "badgeNextUp": "Next Up",
+  "badgePending": "Pending",
+  "failedDesc0": "Audio extraction failed",
+  "failedDesc1": "Transcription / translation failed",
+  "failedDesc2": "Speech synthesis failed",
+  "failedDesc3": "Video render failed",
+  "stage0Done": "Demuxed 48kHz WAV audio stream",
+  "stage0Running": "Demuxing audio track to 48kHz WAV",
+  "stage0Pending": "Awaiting audio extraction",
+  "stage1Done": "Khmer translation completed",
+  "stage1Running": "Translating dialogue to Khmer",
+  "stage1Pending": "Khmer translation queued",
+  "stage2Done": "Edge-TTS Khmer audio rendered",
+  "stage2Running": "Synthesizing...",
+  "stage2Pending": "Synthesis queued",
+  "stage3Done": "Final dubbed MP4 rendered",
+  "stage3Running": "Remuxing video & muxing Khmer audio",
+  "stage3Pending": "Video remux & lip-sync pending",
+  "preparingPipeline": "Preparing pipeline for {title}",
+  "@preparingPipeline": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "waitingInQueue": "Waiting in queue position #{position}",
+  "@waitingInQueue": {
+    "placeholders": { "position": { "type": "int" } }
+  },
+  "startingPipeline": "Starting pipeline for {title}",
+  "@startingPipeline": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "allStagesCompleted": "All 4 stages completed • Output ready",
+  "queuedToRetry": "Queued to retry from {stage}",
+  "@queuedToRetry": {
+    "placeholders": { "stage": { "type": "String" } }
+  },
+  "stoppedAtStage": "Stopped at {stage} • {message}",
+  "@stoppedAtStage": {
+    "placeholders": {
+      "stage": { "type": "String" },
+      "message": { "type": "String" }
+    }
+  },
+
+  "selectVideoSourceTitle": "Select Video Source",
+  "galleryOption": "From Gallery",
+  "fileOption": "From File",
+  "couldNotReadVideo": "Could not read the selected video file.",
+  "couldNotLoadVideo": "Could not load the selected video file.",
+  "videoPreviewFailed": "Could not load this video for preview.",
+  "errorLoadingVideo": "Error loading video: {error}",
+  "pipelineStartedFor": "Started dubbing pipeline for {video}!",
+  "advancedAudioTuning": "Advanced Audio Tuning",
+  "noVoiceSelected": "None selected",
+  "terminateProcessTitle": "Terminate Process?",
+  "terminateProcessBody": "Are you sure you want to stop the ongoing translation and TTS synthesis? This will abort the current video render.",
+  "terminateConfirm": "Terminate",
+  "processTerminated": "Dubbing process terminated.",
+  "removeFromQueueTitle": "Remove from queue?",
+  "removeFromQueueBody": "Remove \"{title}\" from the queue? This video has not started processing yet, so nothing will be rendered for it.",
+  "removeConfirm": "Remove",
+  "removedFromQueue": "\"{title}\" removed from queue.",
+  "jobNoLongerInQueue": "This job is no longer in the queue.",
+  "processingActiveTask": "Processing",
+  "completedRecentJobs": "Recently Completed",
+  "failedJobs": "Failed Jobs",
+  "liveBadge": "Live",
+  "emptyStateEmptyQueue": "No dubbing jobs yet",
+  "emptyStateEmptyQueueBody": "Pick a video and a voice on the Dub screen, then tap \"Start AI Khmer Dubbing\" to begin processing.",
+  "emptyStateEmptyPlayer": "No dubbed video yet",
+  "emptyStateEmptyPlayerBody": "Finish a job in the Queue, then tap \"Play\" on it to watch the rendered Khmer dub here.",
+  "voiceLabel": "Voice: {name}",
+  "playbackLabel": "Playback {current} / {total}",
+  "saveToGallery": "Save to Gallery",
+  "savingLabel": "Saving…",
+  "savedLabel": "Saved to Gallery",
+  "retrySaveToGalleryLabel": "Retry Save to Gallery",
+  "renderedVideoMissing": "The rendered video no longer exists on disk:\n{path}",
+  "@renderedVideoMissingPlayer": {
+    "description": "Shown when the output video file was deleted or moved.",
+    "placeholders": { "path": { "type": "String" } }
+  },
+  "loadErrorUnknown": "Something went wrong while opening this video.",
+  "copyFullReport": "Copy full report",
+  "reportCopied": "Report copied to clipboard",
+  "pipelineError": "Pipeline error",
+  "stageProgression": "Stage Progression",
+  "cancelAction": "Cancel",
+  "selectVoiceModeTitle": "Select Voice Mode",
+  "voiceModeHint": "Single Choice • Multi-Speaker Cast or Solo Voice",
+  "preparingPreview": "Preparing video preview…"
+}

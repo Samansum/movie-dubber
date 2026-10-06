@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -22,6 +23,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       height: 64 + MediaQuery.of(context).padding.top,
       padding: EdgeInsets.only(
@@ -56,7 +58,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   icon: const Icon(Icons.arrow_back_rounded,
                       color: AppColors.onSurface),
                   onPressed: onBack ?? () => Navigator.maybePop(context),
-                  tooltip: 'Back',
+                  tooltip: l10n.back,
                   padding: EdgeInsets.zero,
                   constraints:
                       const BoxConstraints(minWidth: 40, minHeight: 40),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_l10n.dart';
+
 enum VoiceType {
   autoCast,
   male,
@@ -134,6 +136,10 @@ class VideoAsset {
 ///
 /// Titles/icons live here so the orchestrator and the queue UI can never drift
 /// apart on what "stage 2" is called.
+///
+/// Titles are user-visible, so they are resolved against a [Locale] rather
+/// than being a single fixed English list. English stays the default because
+/// it is the template catalog and therefore always complete.
 class DubbingStageCatalog {
   DubbingStageCatalog._();
 
@@ -145,6 +151,17 @@ class DubbingStageCatalog {
     '3. Generate voice',
     '4. Build video',
   ];
+
+  /// The four stage titles rendered in [locale].
+  static List<String> titlesFor(Locale locale) {
+    final l10n = stringsFor(locale);
+    return [
+      l10n.stageTitle1,
+      l10n.stageTitle2,
+      l10n.stageTitle3,
+      l10n.stageTitle4,
+    ];
+  }
 
   /// Raw, unfiltered diagnostic captured when a stage throws.
   ///
@@ -169,11 +186,11 @@ class DubbingStageCatalog {
     );
   }
 
-  static String titleFor(int stageIndex) {
-    if (stageIndex < 0 || stageIndex >= titles.length) {
-      return 'Stage ${stageIndex + 1}';
+  static String titleFor(int stageIndex, {Locale locale = const Locale('en')}) {
+    if (stageIndex < 0 || stageIndex >= stageCount) {
+      return stringsFor(locale).stageFallback(stageIndex + 1);
     }
-    return titles[stageIndex];
+    return titlesFor(locale)[stageIndex];
   }
 }
 

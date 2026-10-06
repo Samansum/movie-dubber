@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../l10n/app_l10n.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../theme/app_colors.dart';
@@ -257,15 +258,14 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            'No dubbed video yet',
+            AppLocalizations.of(context).emptyStateEmptyPlayer,
             style:
                 AppTypography.headlineSm.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
-            'Finish a job in the Queue, then tap "Play" on it to watch the '
-            'rendered Khmer dub here.',
-            textAlign: TextAlign.center,
+            AppLocalizations.of(context).emptyStateEmptyPlayerBody,
+textAlign: TextAlign.center,
             style: AppTypography.bodySm.copyWith(
               color: AppColors.onSurfaceVariant,
               fontSize: 12,
@@ -314,7 +314,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
           const SizedBox(height: 6),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Text(
-              'Voice: ${task.voiceProfile.name}',
+              AppLocalizations.of(context).voiceLabel(task.voiceProfile.name),
               style: AppTypography.bodySm.copyWith(fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -324,8 +324,7 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
                 duration.inMilliseconds > 0) ...[
               const SizedBox(height: 8),
               Text(
-                'Playback ${_formatDuration(position)} / '
-                '${_formatDuration(duration)}',
+                AppLocalizations.of(context).playbackLabel(_formatDuration(position), _formatDuration(duration)),
                 style: AppTypography.codeMono.copyWith(
                   fontSize: 11,
                   color: AppColors.onSurfaceVariant,
@@ -507,10 +506,10 @@ class _CompletedPlayerScreenState extends State<CompletedPlayerScreen> {
     final isSaved = saveState == 'saved';
 
     final (label, icon) = switch (saveState) {
-      'saving' => ('Saving…', null),
-      'saved' => ('Saved to Gallery', Icons.check_circle_rounded),
-      'error' => ('Retry Save to Gallery', Icons.error_rounded),
-      _ => ('Save to Gallery', Icons.download_for_offline_rounded),
+      'saving' => (AppLocalizations.of(context).savingLabel, null),
+      'saved' => (AppLocalizations.of(context).savedLabel, Icons.check_circle_rounded),
+      'error' => (AppLocalizations.of(context).retrySaveToGalleryLabel, Icons.error_rounded),
+      _ => (AppLocalizations.of(context).saveToGallery, Icons.download_for_offline_rounded),
     };
 
     return Container(

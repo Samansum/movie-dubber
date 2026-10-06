@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../l10n/app_l10n.dart';
 import '../models/dub_models.dart';
 import '../services/app_state.dart';
 import '../services/edge_tts_service.dart';
@@ -263,7 +264,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Select Source Video',
+                    AppLocalizations.of(ctx).selectVideoSourceTitle,
                     style: AppTypography.headlineSm
                         .copyWith(color: AppColors.onSurface),
                   ),
@@ -294,14 +295,14 @@ class _NewDubScreenState extends State<NewDubScreen> {
                       color: Colors.white, size: 24),
                 ),
                 title: Text(
-                  'Choose from Gallery or File',
+                  AppLocalizations.of(ctx).galleryOption,
                   style: AppTypography.bodyMd.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.onSurface,
                   ),
                 ),
                 subtitle: Text(
-                  'Select MP4, MOV, or MKV video file from your device',
+                  AppLocalizations.of(ctx).selectVideoHint,
                   style: AppTypography.bodySm,
                 ),
                 onTap: () {
@@ -352,7 +353,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Select Voice Mode',
+                AppLocalizations.of(context).selectVoiceModeTitle,
                 style: AppTypography.headlineSm.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.onSurface,
@@ -360,7 +361,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                'Single Choice • Multi-Speaker Cast or Solo Voice',
+                AppLocalizations.of(context).voiceModeHint,
                 style: AppTypography.bodySm
                     .copyWith(color: AppColors.onSurfaceVariant),
               ),
@@ -620,7 +621,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Dubbing pipeline started for $videoFileName!',
+                              AppLocalizations.of(context).pipelineStartedFor(videoFileName),
                               style: AppTypography.bodyMd
                                   .copyWith(color: Colors.white),
                             ),
@@ -649,7 +650,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Start AI Khmer Dubbing',
+                            AppLocalizations.of(context).startDubbingButton,
                             style: AppTypography.headlineSm.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -666,8 +667,8 @@ class _NewDubScreenState extends State<NewDubScreen> {
                       const SizedBox(height: 2),
                       Text(
                         _hasSelectedVideo
-                            ? '4-Stage Compute • Est. time: ~1m 20s'
-                            : 'Click to select source video first',
+                            ? AppLocalizations.of(context).pipelineEstimate
+                            : AppLocalizations.of(context).clickToSelectSource,
                         style: AppTypography.labelSm.copyWith(
                           color: AppColors.onPrimaryContainer.withOpacity(0.9),
                         ),
@@ -711,7 +712,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Preparing video preview…',
+                  AppLocalizations.of(context).preparingPreview,
                   style: AppTypography.bodySm.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -775,7 +776,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Click to select video from gallery or file',
+                      AppLocalizations.of(context).clickToSelectVideo,
                       style: AppTypography.headlineSm.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -785,7 +786,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to pick a video file from your device storage',
+                      AppLocalizations.of(context).tapToPickVideo,
                       style: AppTypography.bodySm.copyWith(
                         fontSize: 12,
                         color: AppColors.onSurfaceVariant,
@@ -1055,7 +1056,7 @@ class _NewDubScreenState extends State<NewDubScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Replace',
+                                      AppLocalizations.of(context).replaceButton,
                                       style: AppTypography.labelSm.copyWith(
                                         color: AppColors.primary,
                                         fontWeight: FontWeight.w700,

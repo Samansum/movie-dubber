@@ -1,0 +1,10 @@
+# Localization config for `flutter gen-l10n`.
+# The ARB files live in lib/l10n; generated Dart lands in lib/l10n/generated.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-dir: lib/l10n/generated
+output-class: AppLocalizations
+# AppLocalizations.of(context) returns a non-null instance, so call sites do
+# not need a null check on every string.
+nullable-getter: false
