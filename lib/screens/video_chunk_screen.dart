@@ -15,7 +15,9 @@ import '../theme/app_typography.dart';
 
 class VideoChunkScreen extends StatefulWidget {
   final AppState state;
+
   const VideoChunkScreen({super.key, required this.state});
+
   @override
   State<VideoChunkScreen> createState() => _VideoChunkScreenState();
 }
@@ -29,6 +31,7 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
   List<String>? _resultChunks;
   bool _isPlaying = false;
   Timer? _progressTimer;
+
   // Per-chunk playback state
   Map<String, VideoPlayerController?> _chunkPlayers = {};
   Set<String> _playingChunks = {};
@@ -167,8 +170,8 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
 
   Future<void> _pickVideo() async {
     try {
-      final r = await FilePicker.platform.pickFiles(
-        type: FileType.video, allowMultiple: false);
+      final r = await FilePicker.platform
+          .pickFiles(type: FileType.video, allowMultiple: false);
       if (r == null || r.files.isEmpty) return;
       final p = r.files.first.path;
       if (p == null || p.isEmpty) {
@@ -221,11 +224,13 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(m, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
+        content: Text(m,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
         backgroundColor: AppColors.surfaceContainerHighest,
       ),
     );
   }
+
   Future<void> _startChunk() async {
     if (_isProcessing || !_hasVideo) return;
     setState(() {
@@ -288,6 +293,7 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       _err(e.toString());
     }
   }
+
   Widget _buildEmpty(BuildContext ctx) {
     final l10n = AppLocalizations.of(ctx);
     return Container(
@@ -301,28 +307,40 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       child: Column(
         children: [
           Container(
-            width: 56, height: 56,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: AppColors.primaryContainer.withOpacity(0.18),
               shape: BoxShape.circle,
             ),
-            child: const Center(child: Icon(Icons.video_settings_rounded, color: AppColors.primary, size: 26)),
+            child: const Center(
+                child: Icon(Icons.video_settings_rounded,
+                    color: AppColors.primary, size: 26)),
           ),
           const SizedBox(height: 14),
-          Text(l10n.chunkEmptyTitle, style: AppTypography.headlineSm.copyWith(fontWeight: FontWeight.w700)),
+          Text(l10n.chunkEmptyTitle,
+              style: AppTypography.headlineSm
+                  .copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text(l10n.chunkEmptyBody, textAlign: TextAlign.center, style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 12)),
+          Text(l10n.chunkEmptyBody,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySm
+                  .copyWith(color: AppColors.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _pickVideo,
               icon: const Icon(Icons.upload_file_rounded, size: 20),
-              label: Text(l10n.chunkSelectVideo, style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w700)),
+              label: Text(l10n.chunkSelectVideo,
+                  style: AppTypography.labelMd
+                      .copyWith(fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ),
@@ -330,9 +348,11 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       ),
     );
   }
+
   Widget _buildInfoCard(BuildContext ctx) {
     final a = _videoAsset!;
-    final fmt = VideoChunkingService.formatTime(a.duration.inSeconds.toDouble());
+    final fmt =
+        VideoChunkingService.formatTime(a.duration.inSeconds.toDouble());
     final c = _videoController;
     final rd = c != null && c.value.isInitialized;
     final ar = rd ? c!.value.aspectRatio : 16 / 9;
@@ -340,8 +360,14 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
       decoration: BoxDecoration(
         color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5),
-        boxShadow: [BoxShadow(color: AppColors.primaryContainer.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 4))],
+        border:
+            Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.primaryContainer.withOpacity(0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -352,72 +378,94 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
                 GestureDetector(
                   onTap: _togglePlay,
                   child: Container(
-                    width: 120, height: 80,
-                    decoration: BoxDecoration(color: AppColors.surfaceContainerLowest, borderRadius: BorderRadius.circular(12)),
-                    child: rd ? Center(child: AspectRatio(aspectRatio: ar, child: VideoPlayer(c))) : null,
+                    width: 120,
+                    height: 80,
+                    decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(12)),
+                    child: rd
+                        ? Center(
+                            child: AspectRatio(
+                                aspectRatio: ar, child: VideoPlayer(c)))
+                        : null,
                   ),
                 ),
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: AppColors.primary.withOpacity(0.85),
-                  child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                  child: Icon(
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 22),
                 ),
               ]),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(a.fileName, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(fmt, style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.fileName,
+                          style: AppTypography.bodyMd
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text(fmt,
+                          style: AppTypography.bodySm
+                              .copyWith(color: AppColors.onSurfaceVariant)),
+                    ]),
               ),
             ],
           ),
           const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                tooltip: AppLocalizations.of(ctx).replaceButton,
-                onPressed: _isProcessing ? null : _pickVideo,
-              ),
-              const SizedBox(width: 8), // Optional spacing between icon and button
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isProcessing ? null : _startChunk,
-                  icon: _isProcessing
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  tooltip: AppLocalizations.of(ctx).replaceButton,
+                  onPressed: _isProcessing ? null : _pickVideo,
+                ),
+                const SizedBox(width: 8),
+                // Optional spacing between icon and button
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _startChunk,
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.auto_awesome_rounded, size: 20),
+                    label: Text(
+                      _isProcessing
+                          ? AppLocalizations.of(ctx).chunkProcessing
+                          : AppLocalizations.of(ctx).chunkStartButton,
+                      style: AppTypography.labelMd
+                          .copyWith(fontWeight: FontWeight.w700),
                     ),
-                  )
-                      : const Icon(Icons.auto_awesome_rounded, size: 20),
-                  label: Text(
-                    _isProcessing
-                        ? AppLocalizations.of(ctx).chunkProcessing
-                        : AppLocalizations.of(ctx).chunkStartButton,
-                    style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isProcessing
-                        ? AppColors.primary.withOpacity(0.7)
-                        : AppColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 48), // Properly constrained by Expanded
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isProcessing
+                          ? AppColors.primary.withOpacity(0.7)
+                          : AppColors.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                      // Properly constrained by Expanded
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
           if (_isProcessing) ...[
             const SizedBox(height: 12),
             ClipRRect(
@@ -428,79 +476,123 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
                 child: FractionallySizedBox(
                   widthFactor: _progress.clamp(0.0, 1.0),
                   child: Container(
-                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.secondary, AppColors.primary])),
+                    decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                            colors: [AppColors.secondary, AppColors.primary])),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 6),
-            Text(_statusLog, style: AppTypography.codeMono.copyWith(fontSize: 11, color: AppColors.onSurfaceVariant)),
+            Text(_statusLog,
+                style: AppTypography.codeMono
+                    .copyWith(fontSize: 11, color: AppColors.onSurfaceVariant)),
           ],
         ]),
       ),
     );
   }
+
   Widget _buildResults(BuildContext ctx) {
     final l10n = AppLocalizations.of(ctx);
     return Column(children: [
       Container(
-        width: double.infinity, padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.tertiaryContainer.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.tertiary.withOpacity(0.3))),
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: AppColors.tertiaryContainer.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.tertiary.withOpacity(0.3))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const Icon(Icons.check_circle_rounded, color: AppColors.tertiary, size: 20), const SizedBox(width: 8),
-            Text(l10n.chunkComplete, style: AppTypography.headlineSm.copyWith(fontWeight: FontWeight.w700, color: AppColors.tertiary))]),
+          Row(children: [
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.tertiary, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.chunkComplete,
+                style: AppTypography.headlineSm.copyWith(
+                    fontWeight: FontWeight.w700, color: AppColors.tertiary))
+          ]),
           const SizedBox(height: 4),
-          Text('${_resultChunks!.length} ${l10n.chunkChunksCreated}', style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
+          Text('${_resultChunks!.length} ${l10n.chunkChunksCreated}',
+              style: AppTypography.bodySm
+                  .copyWith(color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 8),
           // Chunks saved to Gallery confirmation
-          Row(children: [const Icon(Icons.cloud_done_rounded, color: AppColors.secondary, size: 16), const SizedBox(width: 6),
-            Text('Saved to Gallery (Movies/${_videoAsset!.fileName.split('.').first}/)',
-                style: AppTypography.bodySm.copyWith(color: AppColors.secondary, fontSize: 11))]),
+          Row(children: [
+            const Icon(Icons.cloud_done_rounded,
+                color: AppColors.secondary, size: 16),
+            const SizedBox(width: 6),
+            Text(
+                'Saved to Gallery (Movies/${_videoAsset!.fileName.split('.').first}/)',
+                style: AppTypography.bodySm
+                    .copyWith(color: AppColors.secondary, fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis)
+          ]),
           const SizedBox(height: 12),
           // Clear/Reset button
           OutlinedButton.icon(
             onPressed: _clearAllResults,
             icon: const Icon(Icons.clear_all_rounded, size: 18),
-            label: Text(l10n.chunkClearAll, style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600)),
+            label: Text(l10n.chunkClearAll,
+                style: AppTypography.labelMd
+                    .copyWith(fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.onSurfaceVariant,
               side: BorderSide(color: AppColors.outline.withOpacity(0.4)),
               minimumSize: const Size.fromHeight(40),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ]),
       ),
       const SizedBox(height: 12),
       ..._resultChunks!.map((p) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          iconColor: AppColors.primary, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          leading: const Icon(Icons.video_file_rounded, color: AppColors.primary, size: 20),
-          title: Text(p.split('/').last, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w500)),
-          subtitle: Text(_fmtSize(File(p).lengthSync()), style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
-          trailing: IconButton(
-            icon: Icon(
-              _playingChunks.contains(p) ? Icons.stop_rounded : Icons.play_circle_outline_rounded,
-              color: AppColors.secondary,
-              size: 28,
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+                color: AppColors.surfaceContainer,
+                borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              iconColor: AppColors.primary,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: const Icon(Icons.video_file_rounded,
+                  color: AppColors.primary, size: 20),
+              title: Text(p.split('/').last,
+                  style: AppTypography.bodyMd
+                      .copyWith(fontWeight: FontWeight.w500)),
+              subtitle: Text(_fmtSize(File(p).lengthSync()),
+                  style: AppTypography.bodySm
+                      .copyWith(color: AppColors.onSurfaceVariant)),
+              trailing: IconButton(
+                icon: Icon(
+                  _playingChunks.contains(p)
+                      ? Icons.stop_rounded
+                      : Icons.play_circle_outline_rounded,
+                  color: AppColors.secondary,
+                  size: 28,
+                ),
+                tooltip: _playingChunks.contains(p) ? 'Stop' : 'Play',
+                onPressed: () => _playChunk(p),
+              ),
             ),
-            tooltip: _playingChunks.contains(p) ? 'Stop' : 'Play',
-            onPressed: () => _playChunk(p),
-          ),
-        ),
-      )),
+          )),
       const SizedBox(height: 12),
       SizedBox(
         width: double.infinity,
         child: OutlinedButton(
           onPressed: () => setState(() => _resultChunks = null),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary, side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-            minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            foregroundColor: AppColors.primary,
+            side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
+            minimumSize: const Size.fromHeight(48),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
-          child: Text(l10n.chunkClose, style: AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600)),
+          child: Text(l10n.chunkClose,
+              style:
+                  AppTypography.labelMd.copyWith(fontWeight: FontWeight.w600)),
         ),
       ),
     ]);
@@ -513,8 +605,10 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
   }
 
   Future<void> _togglePlay() async {
-    if (_isPlaying) await _pauseVid();
-    else await _playVid();
+    if (_isPlaying)
+      await _pauseVid();
+    else
+      await _playVid();
   }
 
   @override
@@ -522,7 +616,8 @@ class _VideoChunkScreenState extends State<VideoChunkScreen> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_resultChunks == null && !_isProcessing && !_hasVideo) _buildEmpty(context),
+        if (_resultChunks == null && !_isProcessing && !_hasVideo)
+          _buildEmpty(context),
         if (_hasVideo && _resultChunks == null) ...[_buildInfoCard(context)],
         if (_resultChunks != null) ...[_buildResults(context)],
       ]),
