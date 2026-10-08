@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -58,5 +55,13 @@ class DefaultFirebaseOptions {
     messagingSenderId: '583386623484',
     projectId: 'khmer-movie-dubber',
     storageBucket: 'khmer-movie-dubber.firebasestorage.app',
+  );
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBMUlTTFyso2HJb3SejI-lY6OQFh1L4GI4',
+    appId: '1:583386623484:ios:919a50fcfb0e568b5d5679',
+    messagingSenderId: '583386623484',
+    projectId: 'khmer-movie-dubber',
+    storageBucket: 'khmer-movie-dubber.firebasestorage.app',
+    iosBundleId: 'com.example.khmerDubberMobile',
   );
 }
